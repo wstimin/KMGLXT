@@ -317,11 +317,30 @@ cmd_install() {
   say "${B}[2/8] Node.js...${RST}"
   ensure_node
 
-  # 3. 拉取代码
+  # 3. 拉取代码(自动回退:直连 → 镜像 → ZIP 下载)
   say "${B}[3/8] 拉取代码...${RST}"
   mkdir -p "$(dirname "$APP_DIR")"
-  git clone --depth 1 "$REPO_URL" "$APP_DIR" 2>/dev/null || die "代码拉取失败，请检查网络或仓库地址 $REPO_URL"
-  info "代码已拉取到 $APP_DIR"
+  if git clone --depth 1 "$REPO_URL" "$APP_DIR" 2>/dev/null; then
+    info "代码已拉取到 $APP_DIR"
+  elif git clone --depth 1 "https://ghfast.top/$REPO_URL" "$APP_DIR" 2>/dev/null; then
+    info "通过镜像拉取到 $APP_DIR"
+  elif
+    local _zip="/tmp/kmglxt.zip"
+    say "  使用 CDN 下载源码..."
+    curl -fsSL -o "$_zip" "https://ghfast.top/$REPO_URL/archive/refs/heads/main.zip" 2>/dev/null \
+      || curl -fsSL -o "$_zip" "https://ghproxy.net/https://github.com/wstimin/KMGLXT/archive/refs/heads/main.zip" 2>/dev/null
+  then
+    command -v unzip &>/dev/null || $PM_INSTALL unzip >/dev/null 2>&1
+    local _tmp="/tmp/kmglxt-extract-$$"
+    mkdir -p "$_tmp"
+    unzip -q "$_zip" -d "$_tmp" >/dev/null 2>&1 || { rm -rf "$_tmp" "$_zip"; die "ZIP 解压失败"; }
+    mv "$_tmp"/KMGLXT-main/* "$APP_DIR" 2>/dev/null || mv "$_tmp"/KMGLXT-*/* "$APP_DIR" 2>/dev/null
+    rm -rf "$_tmp" "$_zip"
+    info "通过 ZIP 下载到 $APP_DIR"
+  else
+    rm -f "$_zip" 2>/dev/null
+    die "拉取失败:直连、镜像、ZIP 均不可用,请检查服务器网络"
+  fi
 
   # 4. 安装依赖 + 构建
   say "${B}[4/8] 安装依赖并构建前端...${RST}"
