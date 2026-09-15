@@ -14,6 +14,15 @@
 后台「项目管理」创建项目并领取 `app_key / app_secret`,对方网站请求 `POST /api/v1/card/*`(HMAC-SHA256 签名 + 时间戳 + nonce 防重放)。
 签名算法、六个接口说明、回调格式与错误码:见 [`docs/对接文档.md`](docs/对接文档.md)。SDK:`docs/sdk/`。
 
+**四种套餐类型**：
+
+| 类型 | kind | 语义 | 剩余字段 |
+|---|---|---|---|
+| 时长卡 | `duration` | 激活后按天数计算过期时间 | `remaining_days` |
+| 次数卡 | `times` | 激活后按次扣减,扣完自动过期 | `remaining_times` |
+| 金额卡 | `money` | **只报面额不动账**,余额核销由对方平台完成 | `remaining_amount`（固定面额） |
+| 永久卡 | `permanent` | 无期限 | 均为 `null` |
+
 ## 服务器一键安装(推荐)
 
 > 需要一台 Linux 服务器(Debian/Ubuntu/CentOS/RHEL/Rocky),全程交互,**不添加域名也能用**(通过 `IP:端口` 访问与对接)。
@@ -91,3 +100,4 @@ npm start
 - [x] P2 核心:全局卡池、批量生成、套餐、导入导出、批量状态操作、核销流水
 - [x] P3 接管:项目管理 + app_key/app_secret、对外验卡 API(HMAC 签名/防重放/限频)、核销流水、激活回调、SDK 示例与对接手册
 - [x] P4 打磨:图表动效、备份恢复、部署上线、一键安装与管理脚本 `km`
+- [x] 金额卡套餐:money 类型(只报面额不动账,对接方平台自行核销),verify/activate/callback 全链路支持
