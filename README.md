@@ -26,16 +26,17 @@
 ## 服务器一键安装(推荐)
 
 > 需要一台 Linux 服务器(Debian/Ubuntu/CentOS/RHEL/Rocky),全程交互,**不添加域名也能用**(通过 `IP:端口` 访问与对接)。
+> **从 GitHub Releases 下载预编译包**,无需在服务器上构建前端,安装极快。
 
 ```bash
-# 首次安装只需一次性获取脚本并运行:
+# 首次安装只需一条命令:
 curl -fsSL https://raw.githubusercontent.com/wstimin/KMGLXT/main/deploy/km.sh -o km.sh
 sudo bash km.sh        # 打开交互菜单 → 选 1) 安装
 
 # 安装完成后,系统命令:
-km                      # 随时调出管理菜单
-km info                 # 查看系统信息(含管理员账号密码)
-km update               # 更新应用(自动备份数据库,保留现有数据)
+km                      # 随时调出管理菜单(自动显示当前/最新版本)
+km info                 # 查看系统信息(含管理员账号密码,可检查更新)
+km update               # 更新应用(自动检查最新 Release → 下载 → 备份数据库 → 保留现有数据)
 km auth                 # 修改管理员账号/密码
 km domain add ka.example.com   # 添加域名并申请 HTTPS 证书
 km domain remove ka.example.com # 删除域名
@@ -47,10 +48,10 @@ km uninstall            # 彻底卸载(删除全部数据)
 
 | 步骤 | 说明 |
 |---|---|
-| 系统依赖 | curl / git / openssl 等 |
+| 系统依赖 | curl / openssl 等 |
 | Node.js | 自动安装 v24(NodeSource,失败自动回退官方二进制) |
-| 拉取代码 | `git clone` 到 `/opt/kmglxt` |
-| 依赖 + 构建 | `npm run setup` + 前端构建 |
+| 下载安装包 | 从 GitHub Releases 下载预编译 tar.gz(含已构建的前端) |
+| 依赖安装 | 仅安装 server 生产依赖(默认源失败自动切 npmmirror) |
 | 初始化 | 自动生成随机强度管理员密码,**仅存本地 `600` 权限文件**(库里只存 bcrypt 哈希) |
 | systemd | `kmglxt.service`,开机自启、崩溃自动拉起 |
 | 防火墙 | 自动放行 1111 / 80 / 443 |
@@ -92,8 +93,8 @@ npm start
 |---|---|
 | 查看服务状态 | `systemctl status kmglxt` |
 | 查看日志 | `journalctl -u kmglxt -f` |
-| 一键更新(备份→拉码→构建→重启) | `km update` |
-| 远端重新构建(不自动重启) | `bash /opt/kmglxt/deploy/build.sh` |
+| 一键更新(检查版本→下载 Release→备份→重启) | `km update` |
+| 远端重新拉码构建(不自动重启) | `bash /opt/kmglxt/deploy/build.sh` |
 | 手动备份数据库 | 后台「系统设置 → 数据与备份」或 `node server/scripts/db-backup.js <路径>.db` |
 | 修改账号密码 | `km auth` 或后台侧边栏 |
 

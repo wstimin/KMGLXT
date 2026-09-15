@@ -19,6 +19,8 @@ NGINX_CONFD="/etc/nginx/conf.d"
 UNIT="kmglxt.service"
 DEFAULT_PORT=1111
 REPO_URL="${KM_REPO:-https://github.com/wstimin/KMGLXT.git}"
+GH_API="https://api.github.com/repos/wstimin/KMGLXT"
+GH_REL="https://github.com/wstimin/KMGLXT/releases"
 
 # ── 从 env 文件加载变量(已安装则读取) ───────────────
 PORT="${DEFAULT_PORT}"
@@ -315,6 +317,108 @@ _sync_trust_proxy() {
   _restart_service
 }
 
+# ── Release 版本管理 ─────────────────────────────────
+# 本地版本文件: 记录安装/更新时使用的 Release 版本号
+VERSION_FILE="$APP_DIR/.km-version"
+
+# 获取 GitHub 最新 Release 版本号(v0.X → X)
+_get_latest_release() {
+  local tag
+  tag="$(curl -fsSL --connect-timeout 5 --max-time 10 \
+    "$GH_API/releases/latest" 2>/dev/null \
+    | grep '"tag_name":' \
+    | head -1 \
+    | sed 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')"
+  [ -n "$tag" ] && echo "$tag"
+}
+
+# 获取本地已安装版本号
+_get_local_version() {
+  [ -f "$VERSION_FILE" ] && cat "$VERSION_FILE" 2>/dev/null || echo ""
+}
+
+# 保存版本号
+_save_version() {
+  local tag="$1"
+  echo "$tag" > "$VERSION_FILE"
+  chmod 644 "$VERSION_FILE"
+}
+
+# 从 Release 下载构建包并解压到 APP_DIR
+# 返回 0 成功, 1 失败
+_download_release() {
+  local target_dir="$1"
+  local _zip="/tmp/kmglxt-release.tar.gz"
+  local _tmp="/tmp/kmglxt-extract-$$"
+  rm -rf "$_tmp" "$_zip" 2>/dev/null
+
+  local _rel_url=""
+  local _tag
+  _tag="$(_get_latest_release)"
+
+  if [ -z "$_tag" ]; then
+    warn "无法获取最新 Release 信息"
+    return 1
+  fi
+
+  # Release 资源命名: KMGLXT-v0.X.tar.gz
+  local _asset_name="KMGLXT-${_tag}.tar.gz"
+
+  # 下载策略: 直连 GitHub → ghfast.top 镜像 → ghproxy.net 镜像
+  say "  下载 Release ${_tag}..."
+
+  if curl -fSL --connect-timeout 10 --max-time 120 \
+    -o "$_zip" "${GH_REL}/download/${_tag}/${_asset_name}" 2>/dev/null; then
+    info "直连下载成功"
+  elif curl -fSL --connect-timeout 10 --max-time 120 \
+    -o "$_zip" "https://ghfast.top/${GH_REL}/download/${_tag}/${_asset_name}" 2>/dev/null; then
+    info "通过镜像 ghfast.top 下载成功"
+  elif curl -fSL --connect-timeout 10 --max-time 120 \
+    -o "$_zip" "https://ghproxy.net/${GH_REL}/download/${_tag}/${_asset_name}" 2>/dev/null; then
+    info "通过镜像 ghproxy.net 下载成功"
+  else
+    rm -f "$_zip" 2>/dev/null
+    warn "Release 下载失败（直连 / 镜像均不可用）"
+    return 1
+  fi
+
+  # 解压到临时目录
+  mkdir -p "$_tmp"
+  if ! tar -xzf "$_zip" -C "$_tmp" 2>/dev/null; then
+    rm -rf "$_tmp" "$_zip" 2>/dev/null
+    warn "Release 包解压失败"
+    return 1
+  fi
+
+  # 找到解压后的根目录（可能有前缀目录，也可能直接是 server/web）
+  local _src="$_tmp"
+  if [ ! -d "$_tmp/server" ]; then
+    _src="$(find "$_tmp" -maxdepth 2 -type d -name server 2>/dev/null | head -1)"
+    _src="$(dirname "$_src" 2>/dev/null)"
+    [ -n "$_src" ] && [ -d "$_src/server" ] || _src="$_tmp"
+  fi
+
+  # 保留数据库目录
+  [ -d "$target_dir/server/data" ] && mv "$target_dir/server/data" "$_tmp/_preserved_data" 2>/dev/null
+
+  # 覆盖安装
+  mkdir -p "$target_dir"
+  # 先复制必要目录
+  for d in server web deploy docs; do
+    [ -d "$_src/$d" ] && cp -r "$_src/$d" "$target_dir/" 2>/dev/null
+  done
+  # 复制根目录文件
+  for f in package.json README.md .gitignore; do
+    [ -f "$_src/$f" ] && cp "$_src/$f" "$target_dir/" 2>/dev/null
+  done
+
+  # 恢复数据库目录
+  [ -d "$_tmp/_preserved_data" ] && mv "$_tmp/_preserved_data" "$target_dir/server/data" 2>/dev/null
+
+  rm -rf "$_tmp" "$_zip" 2>/dev/null
+  return 0
+}
+
 # ══════════════════════════════════════════════════════
 #                        功能菜单
 # ══════════════════════════════════════════════════════
@@ -338,57 +442,41 @@ cmd_install() {
   echo
 
   # 1. 系统依赖
-  say "${B}[1/8] 系统依赖...${RST}"
+  say "${B}[1/7] 系统依赖...${RST}"
   $PM_UPDATE &>/dev/null 2>&1 || true
-  $PM_INSTALL curl git unzip tar openssl ca-certificates &>/dev/null 2>&1 || die "系统依赖安装失败"
+  $PM_INSTALL curl openssl ca-certificates &>/dev/null 2>&1 || die "系统依赖安装失败"
 
   # 2. Node.js
-  say "${B}[2/8] Node.js...${RST}"
+  say "${B}[2/7] Node.js...${RST}"
   ensure_node
 
-  # 3. 拉取代码(自动回退:直连 → 镜像 → ZIP 下载)
-  say "${B}[3/8] 拉取代码...${RST}"
+  # 3. 下载 Release 构建包(从 GitHub Releases 下载预编译包,免去服务器构建)
+  say "${B}[3/7] 下载安装包...${RST}"
   mkdir -p "$(dirname "$APP_DIR")"
-  if git clone --depth 1 "$REPO_URL" "$APP_DIR" 2>/dev/null; then
-    info "代码已拉取到 $APP_DIR"
-  elif git clone --depth 1 "https://ghfast.top/$REPO_URL" "$APP_DIR" 2>/dev/null; then
-    info "通过镜像拉取到 $APP_DIR"
-  elif
-    local _zip="/tmp/kmglxt.zip"
-    say "  使用 CDN 下载源码..."
-    curl -fsSL -o "$_zip" "https://ghfast.top/$REPO_URL/archive/refs/heads/main.zip" 2>/dev/null \
-      || curl -fsSL -o "$_zip" "https://ghproxy.net/https://github.com/wstimin/KMGLXT/archive/refs/heads/main.zip" 2>/dev/null
-  then
-    command -v unzip &>/dev/null || $PM_INSTALL unzip >/dev/null 2>&1
-    local _tmp="/tmp/kmglxt-extract-$$"
-    mkdir -p "$_tmp"
-    unzip -q "$_zip" -d "$_tmp" >/dev/null 2>&1 || { rm -rf "$_tmp" "$_zip"; die "ZIP 解压失败"; }
-    mv "$_tmp"/KMGLXT-main/* "$APP_DIR" 2>/dev/null || mv "$_tmp"/KMGLXT-*/* "$APP_DIR" 2>/dev/null
-    rm -rf "$_tmp" "$_zip"
-    info "通过 ZIP 下载到 $APP_DIR"
-  else
-    rm -f "$_zip" 2>/dev/null
-    die "拉取失败:直连、镜像、ZIP 均不可用,请检查服务器网络"
+  if ! _download_release "$APP_DIR"; then
+    die "安装包下载失败:请检查网络后重试"
   fi
+  info "安装包已解压到 $APP_DIR"
 
-  # 4. 安装依赖 + 构建
-  say "${B}[4/8] 安装依赖并构建前端...${RST}"
-  # npm 分开装(避免 npm run setup 的 --prefix 在新版 npm 下的行为差异)
-  if ! (cd "$APP_DIR/server" && npm install --no-fund --no-audit 2>&1 | tail -3); then
+  # 4. 安装 server 依赖(Release 已包含预构建的前端,无需 npm run build)
+  say "${B}[4/7] 安装 server 依赖...${RST}"
+  if ! (cd "$APP_DIR/server" && npm install --omit=dev --no-fund --no-audit 2>&1 | tail -3); then
     warn "默认源安装失败，改用 npmmirror 镜像重试..."
-    (cd "$APP_DIR/server" && npm install --no-fund --no-audit --registry=https://registry.npmmirror.com 2>&1 | tail -3) || die "server 依赖安装失败"
+    (cd "$APP_DIR/server" && npm install --omit=dev --no-fund --no-audit --registry=https://registry.npmmirror.com 2>&1 | tail -3) || die "server 依赖安装失败"
   fi
-  if ! (cd "$APP_DIR/web" && npm install --no-fund --no-audit 2>&1 | tail -3); then
-    warn "默认源安装失败，改用 npmmirror 镜像重试..."
-    (cd "$APP_DIR/web" && npm install --no-fund --no-audit --registry=https://registry.npmmirror.com 2>&1 | tail -3) || die "web 依赖安装失败"
+  info "server 依赖安装完成"
+
+  # 验证前端构建产物
+  if [ -d "$APP_DIR/server/public/assets" ]; then
+    local _asset_count
+    _asset_count=$(find "$APP_DIR/server/public/assets" -type f 2>/dev/null | wc -l)
+    info "前端构建产物: $_asset_count 个文件"
+  else
+    warn "未找到前端构建产物目录,管理界面可能无法访问"
   fi
-  if ! (cd "$APP_DIR" && npm run build 2>&1 | tail -5); then
-    die "前端构建失败，请检查上方错误信息"
-  fi
-  info "依赖安装与构建完成"
 
   # 5. 初始化数据库 + 管理员
-  say "${B}[5/8] 初始化数据库...${RST}"
+  say "${B}[5/7] 初始化数据库...${RST}"
   mkdir -p "$DATA_DIR"
   local admin_user="${KM_ADMIN_USER:-admin}"
   local admin_pass
@@ -397,7 +485,6 @@ cmd_install() {
   if [ "$had_admin" -gt 0 ] 2>/dev/null; then
     admin_user="$(_db_admin_user)"
     info "数据库已有管理员: $admin_user（保留）"
-    # 尝试恢复密码到凭证文件
     if [ ! -f "$CREDS_FILE" ]; then
       _save_creds "$admin_user" "（密码未知，请用 km auth 重置）"
       warn "凭证文件缺失，已创建占位；请用 km auth 重置密码"
@@ -410,36 +497,35 @@ cmd_install() {
     info "管理员已创建: $admin_user"
   fi
 
-  # 6. 写入环境文件
-  say "${B}[6/8] 写入环境配置...${RST}"
+  # 6. 写入环境文件 + 版本号
+  say "${B}[6/7] 写入环境配置...${RST}"
   _write_env
+  local _rel_tag
+  _rel_tag="$(_get_latest_release)"
+  [ -n "$_rel_tag" ] && _save_version "$_rel_tag"
   info "环境变量已写入 $ENV_FILE"
 
-  # 7. systemd 服务
-  say "${B}[7/8] 配置系统服务...${RST}"
+  # 7. systemd 服务 + 防火墙 + km 链接
+  say "${B}[7/7] 配置系统服务...${RST}"
   _install_systemd
-  info "服务 $UNIT 已启动"
-
-  # 8. 防火墙 + km 链接
-  say "${B}[8/8] 防火墙 + 命令链接...${RST}"
   _open_firewall "$PORT"
   chmod +x "$APP_DIR/deploy/km.sh"
   ln -sf "$APP_DIR/deploy/km.sh" /usr/local/bin/km
-  info "km 命令已注册: /usr/local/bin/km"
+  info "服务 $UNIT 已启动 · km 命令已注册"
 
   echo
   say "${G}══════════════════════════════════════════${RST}"
   say "${G}  ✔ 安装完成！${RST}"
   say "${G}══════════════════════════════════════════${RST}"
   if [ -f "$CREDS_FILE" ]; then
-    say ""
+    echo
     say "${B}管理员账号:${RST}"
     cat "$CREDS_FILE"
     echo
   fi
   print_access_urls
   say "${B}管理菜单:${RST} km"
-  say ""
+  echo
   if ! confirm "是否现在添加域名并申请 HTTPS 证书?"; then
     info "跳过域名配置，可随时用 km domain add <域名> 添加"
   else
@@ -458,8 +544,27 @@ cmd_update() {
   say "${B}  十夜卡密(KMGLXT) 更新${RST}"
   say "${B}══════════════════════════════════════════${RST}"
 
+  # 检查最新 Release 版本
+  say "${B}[1/5] 检查最新版本...${RST}"
+  local _latest
+  _latest="$(_get_latest_release)"
+  local _local
+  _local="$(_get_local_version)"
+
+  if [ -z "$_latest" ]; then
+    warn "无法获取最新版本信息，跳过版本检查"
+  elif [ "$_latest" = "$_local" ]; then
+    info "当前版本已是最新: $_local"
+    if ! confirm "版本相同，是否仍要重新安装?"; then
+      say "已取消"
+      return
+    fi
+  else
+    [ -n "$_local" ] && info "当前版本: $_local → 最新版本: $_latest" || info "最新版本: $_latest"
+  fi
+
   # 数据库热备份
-  say "${B}[1/5] 数据库备份...${RST}"
+  say "${B}[2/5] 数据库备份...${RST}"
   local backup_dir="$DATA_DIR/backups/auto"
   mkdir -p "$backup_dir"
   local backup_file="$backup_dir/pre-update-$(date +%Y%m%d-%H%M%S).db"
@@ -470,57 +575,21 @@ cmd_update() {
     warn "未找到数据库文件，跳过备份"
   fi
 
-  # Git 拉取
-  say "${B}[2/5] 拉取最新代码...${RST}"
-  local _pulled=0
-  if [ -d "$APP_DIR/.git" ]; then
-    # fetch + reset（比 pull --ff-only 更健壮）
-    if (cd "$APP_DIR" && git fetch --depth 1 origin main 2>/dev/null && git reset --hard origin/main 2>/dev/null); then
-      info "代码已更新"
-      _pulled=1
-    fi
-    # 直连失败 → ghfast.top 镜像
-    if [ "$_pulled" -eq 0 ]; then
-      if (cd "$APP_DIR" && git remote set-url origin "https://ghfast.top/$REPO_URL" 2>/dev/null && git fetch --depth 1 origin main 2>/dev/null && git reset --hard origin/main 2>/dev/null); then
-        info "通过镜像更新代码"
-        _pulled=1
-      fi
-    fi
-    # 无论成功失败都恢复原地址，避免 ghfast 残留
-    (cd "$APP_DIR" && git remote set-url origin "$REPO_URL" 2>/dev/null) 2>/dev/null
-    if [ "$_pulled" -eq 0 ]; then
-      warn "git fetch 失败，跳过代码更新（继续使用当前代码）"
-    fi
-  else
-    warn "非 Git 仓库，跳过代码拉取（使用当前代码）"
+  # 下载 Release 并覆盖安装(保留 server/data 目录)
+  say "${B}[3/5] 下载最新 Release...${RST}"
+  if ! _download_release "$APP_DIR"; then
+    warn "Release 下载失败，跳过代码更新（继续使用当前版本）"
   fi
 
-  # npm 依赖（分开装，默认源失败自动切 npmmirror）
-  say "${B}[3/5] 安装依赖...${RST}"
-  if ! (cd "$APP_DIR/server" && npm install --no-fund --no-audit 2>&1 | tail -3); then
+  # npm server 依赖(Release 不含 node_modules，只装 server 生产依赖)
+  say "${B}[4/5] 安装依赖...${RST}"
+  if ! (cd "$APP_DIR/server" && npm install --omit=dev --no-fund --no-audit 2>&1 | tail -3); then
     warn "默认源安装失败，改用 npmmirror 镜像重试..."
-    (cd "$APP_DIR/server" && npm install --no-fund --no-audit --registry=https://registry.npmmirror.com 2>&1 | tail -3) || die "server 依赖安装失败"
+    (cd "$APP_DIR/server" && npm install --omit=dev --no-fund --no-audit --registry=https://registry.npmmirror.com 2>&1 | tail -3) || die "server 依赖安装失败"
   fi
   info "server 依赖完成"
-  if ! (cd "$APP_DIR/web" && npm install --no-fund --no-audit 2>&1 | tail -3); then
-    warn "默认源安装失败，改用 npmmirror 镜像重试..."
-    (cd "$APP_DIR/web" && npm install --no-fund --no-audit --registry=https://registry.npmmirror.com 2>&1 | tail -3) || die "web 依赖安装失败"
-  fi
-  info "web 依赖完成"
 
-  # 前端构建（显示错误，不再抑制输出）
-  say "${B}[4/5] 构建前端...${RST}"
-  local _build_log="/tmp/kmglxt-build-$(date +%s).log"
-  if (cd "$APP_DIR" && npm run build 2>&1 | tee "$_build_log" | tail -5); then
-    info "前端构建完成"
-  else
-    warn "构建日志（最后 30 行）："
-    tail -30 "$_build_log" 2>/dev/null
-    die "前端构建失败，请检查上方错误信息"
-  fi
-  rm -f "$_build_log" 2>/dev/null
-
-  # 数据库自动迁移（amount 列兼容老库，不影响已有数据）
+  # 数据库自动迁移（amount 列兼容老库）
   say "${B}[4.5/5] 数据库迁移检查...${RST}"
   if [ -f "$DB_PATH" ]; then
     node -e "
@@ -539,19 +608,21 @@ cmd_update() {
     _asset_count=$(find "$APP_DIR/server/public/assets" -type f 2>/dev/null | wc -l)
     info "构建产物: $_asset_count 个文件"
   else
-    die "构建产物目录不存在: server/public/assets/"
+    warn "构建产物目录不存在,管理界面可能不可用"
   fi
 
   # 重启服务
   say "${B}[5/5] 重启服务...${RST}"
   _restart_service
 
-  # 同步 km 链接
+  # 同步 km 链接 + 版本号
   chmod +x "$APP_DIR/deploy/km.sh" 2>/dev/null
   ln -sf "$APP_DIR/deploy/km.sh" /usr/local/bin/km 2>/dev/null
+  [ -n "$_latest" ] && _save_version "$_latest"
 
   echo
   info "✔ 更新完成！"
+  [ -n "$_latest" ] && say "  版本: $_latest"
   say "  数据目录: $DATA_DIR（已保留）"
   say "  管理员账号: $([ -f "$CREDS_FILE" ] && grep 'username:' "$CREDS_FILE" | awk '{print $2}' || echo '未找到')"
   print_access_urls
@@ -568,10 +639,23 @@ cmd_info() {
   if [ -f "$APP_DIR/package.json" ]; then
     local ver
     ver="$(node -p "require('$APP_DIR/package.json').version" 2>/dev/null || echo '?')"
-    say "  ${B}版本:${RST}  $ver"
+    say "  ${B}包版本:${RST}  $ver"
   else
     say "  ${Y}状态:${RST}  未安装（未找到 package.json）"
     return
+  fi
+
+  # Release 版本
+  local _rl _rv
+  _rl="$(_get_local_version 2>/dev/null)"
+  _rv="$(_get_latest_release 2>/dev/null)"
+  [ -n "$_rl" ] && say "  ${B}安装版本:${RST} $_rl" || say "  ${Y}安装版本:${RST} 未记录"
+  if [ -n "$_rv" ]; then
+    if [ -n "$_rl" ] && [ "$_rl" != "$_rv" ]; then
+      say "  ${Y}最新版本:${RST} $_rv ${Y}(可更新)${RST}"
+    else
+      say "  ${G}最新版本:${RST} $_rv ${G}(已是最新)${RST}"
+    fi
   fi
 
   # 服务状态
@@ -979,21 +1063,33 @@ cmd_uninstall() {
 menu() {
   while true; do
     clear 2>/dev/null || true
+    local _ver_local _ver_remote
+    _ver_local="$(_get_local_version 2>/dev/null)"
+    _ver_remote="$(_get_latest_release 2>/dev/null)"
+    [ -n "$_ver_local" ] && _ver_local="$_ver_local" || _ver_local="未知"
+    [ -n "$_ver_remote" ] && _ver_remote="$_ver_remote" || _ver_remote="未知"
+
     say "${C}"
-    say "  ┌──────────────────────────────────────┐"
-    say "  │      十夜卡密  系统管理菜单          │"
-    say "  │      KMGLXT Server Manager           │"
-    say "  └──────────────────────────────────────┘"
+    say "  ┌───────────────────────────────────────────────┐"
+    say "  │                                               │"
+    say "  │   十夜卡密 · KMGLXT Server Manager            │"
+    say "  │                                               │"
+    say "  │   当前版本: ${G}${_ver_local}${C}                                     │"
+    say "  │   最新版本: ${G}${_ver_remote}${C}                                     │"
+    say "  │                                               │"
+    say "  ├───────────────────────────────────────────────┤"
+    say "  │                                               │"
+    say "  │   ${B}1${C}) 安装（首次部署）                          │"
+    say "  │   ${B}2${C}) 更新（保留现有数据）                       │"
+    say "  │   ${B}3${C}) 查看当前信息                              │"
+    say "  │   ${B}4${C}) 修改账号 / 密码                           │"
+    say "  │   ${B}5${C}) 域名管理                                  │"
+    say "  │   ${B}6${C}) 卸载（彻底清除）                          │"
+    say "  │                                               │"
+    say "  │   ${DIM}0) 退出${C}                                    │"
+    say "  │                                               │"
+    say "  └───────────────────────────────────────────────┘"
     say "${RST}"
-    echo "    1) 安装（首次部署）"
-    echo "    2) 更新（保留现有数据）"
-    echo "    3) 查看当前信息"
-    echo "    4) 修改账号 / 密码"
-    echo "    5) 域名管理"
-    echo "    6) 卸载（彻底清除）"
-    echo ""
-    echo "    0) 退出"
-    echo ""
     printf "  请选择 [0-6]: "
     read -r choice
     echo
