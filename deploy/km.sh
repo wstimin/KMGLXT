@@ -255,6 +255,35 @@ _nginx_reload() {
   nginx -t &>/dev/null && systemctl reload nginx &>/dev/null
 }
 
+# ── 公网 IP 检测 ─────────────────────────────────────
+# hostname -I 只会返回内网 IP,这里依次查询公网 IP(国内可访问的接口优先)
+detect_public_ip() {
+  local ip=""
+  ip="$(curl -s --connect-timeout 3 --max-time 5 https://myip.ipip.net 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+  [ -n "$ip" ] && { echo "$ip"; return; }
+  ip="$(curl -s --connect-timeout 3 --max-time 5 https://cip.cc 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+  [ -n "$ip" ] && { echo "$ip"; return; }
+  ip="$(curl -s --connect-timeout 3 --max-time 5 https://api.ipify.org 2>/dev/null | tr -dc '0-9.')"
+  [ -n "$ip" ] && { echo "$ip"; return; }
+  ip="$(curl -s --connect-timeout 3 --max-time 5 https://ifconfig.me 2>/dev/null | tr -dc '0-9.')"
+  [ -n "$ip" ] && { echo "$ip"; return; }
+}
+
+# ── 访问地址输出(公网优先生效) ──────────────────────
+print_access_urls() {
+  local pub_ip priv_ip
+  pub_ip="$(detect_public_ip)"
+  priv_ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
+  say "  ${B}访问地址:${RST}"
+  if [ -n "$pub_ip" ]; then
+    say "    ${G}公网:${RST} http://$pub_ip:${PORT}"
+  else
+    say "    ${Y}公网:${RST} https://myip.ipip.net 查询(或看云服务商控制台公网 IP)"
+  fi
+  [ -n "$priv_ip" ] && say "    内网: http://$priv_ip:${PORT}"
+  echo
+}
+
 # ── 域名登记表 ──────────────────────────────────────
 _register_domain() {
   local d="$1"
@@ -398,7 +427,7 @@ cmd_install() {
     cat "$CREDS_FILE"
     echo
   fi
-  say "${B}访问地址:${RST} http://$(hostname -I 2>/dev/null | awk '{print $1}'):${PORT}"
+  print_access_urls
   say "${B}管理菜单:${RST} km"
   say ""
   if ! confirm "是否现在添加域名并申请 HTTPS 证书?"; then
@@ -458,14 +487,11 @@ cmd_update() {
   info "✔ 更新完成！"
   say "  数据目录: $DATA_DIR（已保留）"
   say "  管理员账号: $([ -f "$CREDS_FILE" ] && grep 'username:' "$CREDS_FILE" | awk '{print $2}' || echo '未找到')"
-  say "  访问地址: http://$(hostname -I 2>/dev/null | awk '{print $1}'):${PORT}"
+  print_access_urls
 }
 
 # ── 3. 查看信息 ─────────────────────────────────────
 cmd_info() {
-  local ip
-  ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
-
   say "${B}══════════════════════════════════════════${RST}"
   say "${B}  十夜卡密(KMGLXT) 系统信息${RST}"
   say "${B}══════════════════════════════════════════${RST}"
@@ -493,6 +519,13 @@ cmd_info() {
   # 系统环境
   say "  ${B}Node:${RST}   $(node -v 2>/dev/null || echo '未安装')"
   say "  ${B}端口:${RST}   $PORT"
+  local _pub
+  _pub="$(detect_public_ip 2>/dev/null)"
+  if [ -n "$_pub" ]; then
+    say "  ${G}公网IP:${RST}  $_pub（http://$_pub:$PORT）"
+  else
+    say "  ${Y}公网IP:${RST}  未能查询(请以云服务商控制台为准)"
+  fi
 
   # API 自检
   local api_status
