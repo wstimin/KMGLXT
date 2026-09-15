@@ -16,6 +16,7 @@ const form = reactive({
   kind: 'duration',
   days: 30,
   times: 100,
+  amount: 0,
   price: 0,
   scope: [], // [] = 全部项目
   status: 1,
@@ -41,6 +42,7 @@ async function loadAll() {
 function kindText(t) {
   if (t.kind === 'duration') return `时长 · ${t.days} 天`
   if (t.kind === 'times') return `次数 · ${t.times} 次`
+  if (t.kind === 'money') return `金额 · ¥${t.amount}`
   return '永久'
 }
 
@@ -54,7 +56,7 @@ function scopeText(t) {
 function openCreate() {
   dialog.mode = 'create'
   dialog.id = null
-  Object.assign(form, { name: '', kind: 'duration', days: 30, times: 100, price: 0, scope: [], status: 1, sort: 0 })
+  Object.assign(form, { name: '', kind: 'duration', days: 30, times: 100, amount: 0, price: 0, scope: [], status: 1, sort: 0 })
   dialog.open = true
 }
 
@@ -66,6 +68,7 @@ function openEdit(row) {
     kind: row.kind,
     days: row.days,
     times: row.times,
+    amount: row.amount || 0,
     price: row.price,
     scope: (row.scope_projects || []).map((x) => Number(x)),
     status: row.status,
@@ -78,6 +81,7 @@ async function onSubmit() {
   if (!form.name.trim()) return ElMessage.warning('请输入套餐名称')
   if (form.kind === 'duration' && (!form.days || form.days < 1)) return ElMessage.warning('请填写有效的时长天数')
   if (form.kind === 'times' && (!form.times || form.times < 1)) return ElMessage.warning('请填写有效的次数')
+  if (form.kind === 'money' && (!form.amount || form.amount < 1)) return ElMessage.warning('金额卡需填写有效的面额')
   dialog.submitting = true
   try {
     const payload = {
@@ -85,6 +89,7 @@ async function onSubmit() {
       kind: form.kind,
       days: form.kind === 'duration' ? form.days : 0,
       times: form.kind === 'times' ? form.times : 0,
+      amount: form.kind === 'money' ? Number(form.amount) : 0,
       price: Number(form.price) || 0,
       scope_projects: form.scope,
       sort: Number(form.sort) || 0,
@@ -192,6 +197,7 @@ onMounted(loadAll)
           <el-radio-group v-model="form.kind">
             <el-radio-button value="duration">时长卡</el-radio-button>
             <el-radio-button value="times">次数卡</el-radio-button>
+            <el-radio-button value="money">金额卡</el-radio-button>
             <el-radio-button value="permanent">永久卡</el-radio-button>
           </el-radio-group>
         </el-form-item>
@@ -200,6 +206,9 @@ onMounted(loadAll)
         </el-form-item>
         <el-form-item v-if="form.kind === 'times'" label="次数">
           <el-input-number v-model="form.times" :min="1" :max="10000000" />
+        </el-form-item>
+        <el-form-item v-if="form.kind === 'money'" label="金额(元)">
+          <el-input-number v-model="form.amount" :min="1" :precision="2" :step="10" />
         </el-form-item>
         <el-form-item label="价格">
           <el-input-number v-model="form.price" :min="0" :precision="2" :step="1" />

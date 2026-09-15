@@ -31,10 +31,11 @@ if (!isOk($res)) {
     // 2002 已被使用 / 2006 已绑定其他项目 / 2007 该项目不可用 ...
     die(json_encode(['code' => $res['code'], 'msg' => $res['message']]));
 }
-// 激活成功后:套餐类型 / 过期时间 / 剩余次数
-//   $res['data']['type']           => duration | times | permanent
+// 激活成功后:套餐类型 / 过期时间 / 剩余次数 / 金额卡面额
+//   $res['data']['type']           => duration | times | money | permanent
 //   $res['data']['expire_at']      => 时长卡: Unix 秒
 //   $res['data']['remaining_times']=> 次数卡: 剩余次数
+//   $res['data']['amount']         => 金额卡: 面额(只报面额,余额由对方平台扣)
 //   $res['data']['project_id']     => 本项目 id
 echo json_encode([
     'code' => 0,
@@ -42,12 +43,13 @@ echo json_encode([
     'type' => $res['data']['type'],
     'expire_at' => $res['data']['expire_at'],
     'remaining_times' => $res['data']['remaining_times'],
+    'amount' => $res['data']['amount'] ?? null,
 ]);
 
 // ── 2) 日常鉴权:每次登录/访问付费内容前验一次(不改状态) ──
 // $res = $API->verify($card);
 // if (!isOk($res)) { /* 拒绝访问,提示 $res['message'] */ }
-// else { $data = $res['data']; /* remaining_days / remaining_times */ }
+// else { $data = $res['data']; /* remaining_days / remaining_times / remaining_amount */ }
 
 // ── 3) 次数卡扣减:每次消耗一次 ──
 // $res = $API->consume($card, 1);

@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS card_types (
   kind TEXT NOT NULL DEFAULT 'duration',
   days INTEGER NOT NULL DEFAULT 0,
   times INTEGER NOT NULL DEFAULT 0,
+  amount REAL NOT NULL DEFAULT 0,
   price REAL NOT NULL DEFAULT 0,
   scope_projects TEXT NOT NULL DEFAULT '[]',
   status INTEGER NOT NULL DEFAULT 1,
@@ -126,6 +127,10 @@ function migrate(db) {
   const cardsCols = db.prepare('PRAGMA table_info(cards)').all().map((c) => c.name);
   if (!cardsCols.includes('frozen')) {
     db.exec('ALTER TABLE cards ADD COLUMN frozen INTEGER NOT NULL DEFAULT 0');
+  }
+  const typesCols = db.prepare('PRAGMA table_info(card_types)').all().map((c) => c.name);
+  if (!typesCols.includes('amount')) {
+    db.exec('ALTER TABLE card_types ADD COLUMN amount REAL NOT NULL DEFAULT 0');
   }
 }
 

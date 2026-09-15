@@ -24,6 +24,7 @@ const errs = {
   2009: '卡已被冻结',
   2010: '卡密尚未激活',
   2011: '该套餐不支持扣次数',
+  2012: '金额卡不做次数核销,由外部平台核对面额',
 };
 function err(code) { return { code, message: errs[code] || '未知错误', data: null }; }
 
@@ -45,7 +46,7 @@ function loadCard(db, rawCard) {
   if (!card) return null;
   return db
     .prepare(
-      `SELECT c.*, t.kind, t.days, t.times, t.scope_projects
+      `SELECT c.*, t.kind, t.days, t.times, t.amount, t.scope_projects
        FROM cards c JOIN card_types t ON t.id = c.type_id
        WHERE c.card = ?`
     )
@@ -67,6 +68,10 @@ function computeRemaining(row, nowTs) {
   }
   if (row.kind === 'times') {
     return { remaining_days: null, remaining_times: Math.max(0, row.times - row.times_used) };
+  }
+  if (row.kind === 'money') {
+    // 金额卡:面额固定,十夜不动账,剩余金额始终 = 面额
+    return { remaining_days: null, remaining_times: null, remaining_amount: row.amount };
   }
   return { remaining_days: null, remaining_times: null }; // permanent
 }
@@ -140,12 +145,14 @@ function doActivate(db, project, rawCard, ip) {
   ).run(project.id, t, expireAt, ip || '', row.id);
   if (info.changes === 0) return err(2002); // 并发抢先
 
-  const remaining = row.kind === 'times' ? row.times : null;
+  const times = row.kind === 'times' ? row.times : null;
+  const amount = row.kind === 'money' ? row.amount : null;
   const data = {
     type: row.kind,
     card: row.card,
     expire_at: expireAt,
-    remaining_times: remaining,
+    remaining_times: times,
+    amount,
     project_id: project.id,
   };
 
@@ -154,6 +161,7 @@ function doActivate(db, project, rawCard, ip) {
   // 可选回调(异步,不阻塞响应)
   if (project.callback_url) {
     const cbPayload = { card: row.card, project_id: project.id, project_name: project.name, type: row.kind, expire_at: expireAt };
+    if (row.kind === 'money') cbPayload.amount = row.amount;
     notifyCallback(project.callback_url, cbPayload).catch(() => {});
   }
 
@@ -181,8 +189,9 @@ function doConsume(db, project, rawCard, times, ip) {
   }
 
   if (row.kind !== 'times') {
-    logCard(db, row.id, project.id, 'consume', '拒绝:非次数卡', ip);
-    return err(2011);
+    const reason = row.kind === 'money' ? '金额卡不做次数核销' : '非次数卡';
+    logCard(db, row.id, project.id, 'consume', `拒绝:${reason}`, ip);
+    return row.kind === 'money' ? err(2012) : err(2011);
   }
 
   const want = Math.max(1, parseInt(times, 10) || 1);

@@ -51,7 +51,7 @@ router.get('/list', authAdmin, (req, res) => {
   const total = db.prepare(`SELECT COUNT(*) c FROM cards c WHERE ${where}`).get(...params).c;
   const rows = db
     .prepare(
-      `SELECT c.*, t.name AS type_name, p.name AS project_name
+      `SELECT c.*, t.name AS type_name, t.kind AS type_kind, t.amount AS type_amount, p.name AS project_name
        FROM cards c
        LEFT JOIN card_types t ON t.id = c.type_id
        LEFT JOIN projects p ON p.id = c.bound_project_id
@@ -69,7 +69,7 @@ router.get('/:id/detail', authAdmin, (req, res) => {
   const db = getDb();
   const card = db
     .prepare(
-      `SELECT c.*, t.name AS type_name, t.kind AS type_kind, p.name AS project_name
+      `SELECT c.*, t.name AS type_name, t.kind AS type_kind, t.amount AS type_amount, p.name AS project_name
        FROM cards c
        LEFT JOIN card_types t ON t.id = c.type_id
        LEFT JOIN projects p ON p.id = c.bound_project_id

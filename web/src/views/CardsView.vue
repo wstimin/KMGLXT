@@ -143,6 +143,13 @@ function openGen() {
   genDialog.open = true
 }
 
+function typeLabel(t) {
+  if (t.kind === 'duration') return `${t.name}(${t.days}天)`
+  if (t.kind === 'times') return `${t.name}(${t.times}次)`
+  if (t.kind === 'money') return `${t.name}(${t.amount}元)`
+  return `${t.name}(永久)`
+}
+
 async function onSubmitGen() {
   const c = Number(genForm.count)
   if (!c || c < 1) return ElMessage.warning('生成数量至少 1 张')
@@ -280,7 +287,7 @@ onMounted(() => {
     <div class="glass filter-bar">
       <el-input v-model="filters.keyword" placeholder="卡号关键词" clearable style="width: 200px" @keyup.enter="onSearch" @clear="onSearch" />
       <el-select v-model="filters.type_id" placeholder="套餐" clearable style="width: 150px">
-        <el-option v-for="t in types" :key="t.id" :label="t.name" :value="t.id" />
+        <el-option v-for="t in types" :key="t.id" :label="typeLabel(t)" :value="t.id" />
       </el-select>
       <el-select v-model="filters.status" placeholder="状态" clearable style="width: 130px">
         <el-option label="未使用" value="unused" />
@@ -383,7 +390,7 @@ onMounted(() => {
         </el-form-item>
         <el-form-item label="套餐" required>
           <el-select v-model="genForm.type_id" style="width: 100%">
-            <el-option v-for="t in types" :key="t.id" :label="`${t.name}(${t.kind === 'duration' ? t.days + '天' : t.kind === 'times' ? t.times + '次' : '永久'})`" :value="t.id" />
+            <el-option v-for="t in types" :key="t.id" :label="typeLabel(t)" :value="t.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="卡号前缀">
@@ -443,7 +450,7 @@ onMounted(() => {
       <el-form label-width="100px">
         <el-form-item label="目标套餐" required>
           <el-select v-model="impTypeId" style="width: 100%">
-            <el-option v-for="t in types" :key="t.id" :label="t.name" :value="t.id" />
+            <el-option v-for="t in types" :key="t.id" :label="typeLabel(t)" :value="t.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="选择文件" required>
@@ -485,6 +492,7 @@ onMounted(() => {
           <el-descriptions :column="2" border size="small" class="detail-desc">
             <el-descriptions-item label="状态"><StatusPill :status="detail.status" /></el-descriptions-item>
             <el-descriptions-item label="套餐">{{ detail.type_name }}</el-descriptions-item>
+            <el-descriptions-item v-if="detail.type_kind === 'money'" label="面额">¥{{ detail.type_amount }}</el-descriptions-item>
             <el-descriptions-item label="归属项目">{{ detail.project_name || '—' }}</el-descriptions-item>
             <el-descriptions-item label="来源">{{ detail.source || '生成' }}</el-descriptions-item>
             <el-descriptions-item label="创建时间">{{ fmtTime(detail.created_at) }}</el-descriptions-item>
