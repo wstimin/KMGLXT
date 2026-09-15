@@ -1,0 +1,13 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "十夜卡密",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["server/app.js"],
+      "port": 1111,
+      "url": "http://localhost:1111",
+      "autoPort": true
+    }
+  ]
+}

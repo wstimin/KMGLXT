@@ -1,0 +1,54 @@
+/* ============================================================
+   十夜卡密 · Design Tokens 「水晶玻璃 · 光晕蓝紫」
+   ============================================================ */
+:root {
+  /* ── 页面底色:淡彩背景(非纯白、非黑) ── */
+  --bg-1: #eef1ff;
+  --bg-2: #e3ecff;
+
+  /* ── 品牌渐变 ── */
+  --brand-cyan: #22d3ee;
+  --brand-blue: #4f7cff;
+  --brand-violet: #8b5cf6;
+  --grad-main: linear-gradient(135deg, #22d3ee 0%, #4f7cff 52%, #8b5cf6 100%);
+  --grad-soft: linear-gradient(135deg, #7dd3fc 0%, #93aaff 50%, #c4b5fd 100%);
+
+  /* ── 霓虹光晕 ── */
+  --glow-cyan: #38bdf8;
+  --glow-violet: #a78bfa;
+  --glow-pink: #fb7185;
+
+  /* ── 文字 ── */
+  --ink-1: #1e2b4f;
+  --ink-2: #64748b;
+  --ink-3: #94a3b8;
+
+  /* ── 玻璃 ── */
+  --glass-bg: rgba(255, 255, 255, 0.66);
+  --glass-bg-strong: rgba(255, 255, 255, 0.82);
+  --glass-border: rgba(255, 255, 255, 0.9);
+  --glass-shadow: 0 8px 32px rgba(79, 124, 255, 0.16);
+  --glass-shadow-lg: 0 16px 48px rgba(79, 124, 255, 0.22);
+
+  /* ── 圆角 / 间距 ── */
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+  --space: 24px;
+
+  /* ── 语义色 ── */
+  --ok: #10b981;
+  --warn: #f59e0b;
+  --danger: #ef4444;
+
+  /* ── 覆盖 Element Plus 主色 ── */
+  --el-color-primary: #4f7cff;
+  --el-color-primary-light-3: #7d9dff;
+  --el-color-primary-light-5: #b3c4ff;
+  --el-color-primary-light-7: #d6e0ff;
+  --el-color-primary-light-8: #e7edff;
+  --el-color-primary-light-9: #f2f5ff;
+  --el-color-primary-dark-2: #3a63e0;
+  --el-border-radius-base: 10px;
+  --el-font-family: 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei', 'Segoe UI', system-ui, sans-serif;
+}

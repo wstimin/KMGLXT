@@ -1,0 +1,74 @@
+/* ============================================================
+   基础样式:重置、全局背景、排版
+   ============================================================ */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei', 'Segoe UI', system-ui, sans-serif;
+  color: var(--ink-1);
+  background:
+    radial-gradient(1200px 800px at 85% -10%, rgba(167, 139, 250, 0.28), transparent 60%),
+    radial-gradient(1000px 700px at -10% 20%, rgba(56, 189, 248, 0.25), transparent 55%),
+    linear-gradient(135deg, var(--bg-1) 0%, var(--bg-2) 100%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 数字排版(数据感) */
+.num {
+  font-family: 'DIN Alternate', 'Segoe UI', 'PingFang SC', sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+/* 渐变文字 */
+.text-gradient {
+  background: var(--grad-main);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* 滚动条(浅色玻璃风) */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(79, 124, 255, 0.28);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(79, 124, 255, 0.5);
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 页面过渡 */
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 0.28s ease, transform 0.28s ease;
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
