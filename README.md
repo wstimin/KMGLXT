@@ -92,6 +92,8 @@ npm start
 |---|---|
 | 查看服务状态 | `systemctl status kmglxt` |
 | 查看日志 | `journalctl -u kmglxt -f` |
+| 一键更新(备份→拉码→构建→重启) | `km update` |
+| 远端重新构建(不自动重启) | `bash /opt/kmglxt/deploy/build.sh` |
 | 手动备份数据库 | 后台「系统设置 → 数据与备份」或 `node server/scripts/db-backup.js <路径>.db` |
 | 修改账号密码 | `km auth` 或后台侧边栏 |
 

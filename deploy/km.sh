@@ -373,8 +373,18 @@ cmd_install() {
 
   # 4. 安装依赖 + 构建
   say "${B}[4/8] 安装依赖并构建前端...${RST}"
-  (cd "$APP_DIR" && npm run setup > /dev/null 2>&1) || die "npm 依赖安装失败"
-  (cd "$APP_DIR" && npm run build > /dev/null 2>&1) || die "前端构建失败"
+  # npm 分开装(避免 npm run setup 的 --prefix 在新版 npm 下的行为差异)
+  if ! (cd "$APP_DIR/server" && npm install --no-fund --no-audit 2>&1 | tail -3); then
+    warn "默认源安装失败，改用 npmmirror 镜像重试..."
+    (cd "$APP_DIR/server" && npm install --no-fund --no-audit --registry=https://registry.npmmirror.com 2>&1 | tail -3) || die "server 依赖安装失败"
+  fi
+  if ! (cd "$APP_DIR/web" && npm install --no-fund --no-audit 2>&1 | tail -3); then
+    warn "默认源安装失败，改用 npmmirror 镜像重试..."
+    (cd "$APP_DIR/web" && npm install --no-fund --no-audit --registry=https://registry.npmmirror.com 2>&1 | tail -3) || die "web 依赖安装失败"
+  fi
+  if ! (cd "$APP_DIR" && npm run build 2>&1 | tail -5); then
+    die "前端构建失败，请检查上方错误信息"
+  fi
   info "依赖安装与构建完成"
 
   # 5. 初始化数据库 + 管理员
@@ -449,7 +459,7 @@ cmd_update() {
   say "${B}══════════════════════════════════════════${RST}"
 
   # 数据库热备份
-  say "${B}[1/4] 数据库备份...${RST}"
+  say "${B}[1/5] 数据库备份...${RST}"
   local backup_dir="$DATA_DIR/backups/auto"
   mkdir -p "$backup_dir"
   local backup_file="$backup_dir/pre-update-$(date +%Y%m%d-%H%M%S).db"
@@ -461,22 +471,23 @@ cmd_update() {
   fi
 
   # Git 拉取
-  say "${B}[2/4] 拉取最新代码...${RST}"
+  say "${B}[2/5] 拉取最新代码...${RST}"
   local _pulled=0
   if [ -d "$APP_DIR/.git" ]; then
-    # 优先用 fetch + reset(兼容浅克隆,比 pull --ff-only 更健壮)
+    # fetch + reset（比 pull --ff-only 更健壮）
     if (cd "$APP_DIR" && git fetch --depth 1 origin main 2>/dev/null && git reset --hard origin/main 2>/dev/null); then
       info "代码已更新"
       _pulled=1
     fi
-    # 直连失败,尝试镜像
+    # 直连失败 → ghfast.top 镜像
     if [ "$_pulled" -eq 0 ]; then
       if (cd "$APP_DIR" && git remote set-url origin "https://ghfast.top/$REPO_URL" 2>/dev/null && git fetch --depth 1 origin main 2>/dev/null && git reset --hard origin/main 2>/dev/null); then
         info "通过镜像更新代码"
-        (cd "$APP_DIR" && git remote set-url origin "$REPO_URL" 2>/dev/null)
         _pulled=1
       fi
     fi
+    # 无论成功失败都恢复原地址，避免 ghfast 残留
+    (cd "$APP_DIR" && git remote set-url origin "$REPO_URL" 2>/dev/null) 2>/dev/null
     if [ "$_pulled" -eq 0 ]; then
       warn "git fetch 失败，跳过代码更新（继续使用当前代码）"
     fi
@@ -484,19 +495,60 @@ cmd_update() {
     warn "非 Git 仓库，跳过代码拉取（使用当前代码）"
   fi
 
-  # 依赖与构建
-  say "${B}[3/4] 安装依赖并构建前端...${RST}"
-  (cd "$APP_DIR" && npm run setup > /dev/null 2>&1 && npm run build > /dev/null 2>&1) \
-    || die "构建失败"
-  info "依赖与构建完成"
+  # npm 依赖（分开装，默认源失败自动切 npmmirror）
+  say "${B}[3/5] 安装依赖...${RST}"
+  if ! (cd "$APP_DIR/server" && npm install --no-fund --no-audit 2>&1 | tail -3); then
+    warn "默认源安装失败，改用 npmmirror 镜像重试..."
+    (cd "$APP_DIR/server" && npm install --no-fund --no-audit --registry=https://registry.npmmirror.com 2>&1 | tail -3) || die "server 依赖安装失败"
+  fi
+  info "server 依赖完成"
+  if ! (cd "$APP_DIR/web" && npm install --no-fund --no-audit 2>&1 | tail -3); then
+    warn "默认源安装失败，改用 npmmirror 镜像重试..."
+    (cd "$APP_DIR/web" && npm install --no-fund --no-audit --registry=https://registry.npmmirror.com 2>&1 | tail -3) || die "web 依赖安装失败"
+  fi
+  info "web 依赖完成"
+
+  # 前端构建（显示错误，不再抑制输出）
+  say "${B}[4/5] 构建前端...${RST}"
+  local _build_log="/tmp/kmglxt-build-$(date +%s).log"
+  if (cd "$APP_DIR" && npm run build 2>&1 | tee "$_build_log" | tail -5); then
+    info "前端构建完成"
+  else
+    warn "构建日志（最后 30 行）："
+    tail -30 "$_build_log" 2>/dev/null
+    die "前端构建失败，请检查上方错误信息"
+  fi
+  rm -f "$_build_log" 2>/dev/null
+
+  # 数据库自动迁移（amount 列兼容老库，不影响已有数据）
+  say "${B}[4.5/5] 数据库迁移检查...${RST}"
+  if [ -f "$DB_PATH" ]; then
+    node -e "
+      const {DatabaseSync}=require('node:sqlite');
+      const db=new DatabaseSync('$DB_PATH');
+      const cols=db.prepare('PRAGMA table_info(card_types)').all().map(c=>c.name);
+      if(!cols.includes('amount')){db.exec('ALTER TABLE card_types ADD COLUMN amount REAL NOT NULL DEFAULT 0');console.log('✔ 老库补列:amount')}
+      db.close();
+    " 2>/dev/null && info "数据库迁移完成" || warn "数据库迁移跳过（不影响现有数据）"
+  fi
+
+  # 构建产物验证
+  say "${B}[4.6/5] 验证构建产物...${RST}"
+  if [ -d "$APP_DIR/server/public/assets" ]; then
+    local _asset_count
+    _asset_count=$(find "$APP_DIR/server/public/assets" -type f 2>/dev/null | wc -l)
+    info "构建产物: $_asset_count 个文件"
+  else
+    die "构建产物目录不存在: server/public/assets/"
+  fi
 
   # 重启服务
-  say "${B}[4/4] 重启服务...${RST}"
+  say "${B}[5/5] 重启服务...${RST}"
   _restart_service
 
   # 同步 km 链接
-  chmod +x "$APP_DIR/deploy/km.sh"
-  ln -sf "$APP_DIR/deploy/km.sh" /usr/local/bin/km
+  chmod +x "$APP_DIR/deploy/km.sh" 2>/dev/null
+  ln -sf "$APP_DIR/deploy/km.sh" /usr/local/bin/km 2>/dev/null
 
   echo
   info "✔ 更新完成！"
