@@ -462,9 +462,24 @@ cmd_update() {
 
   # Git 拉取
   say "${B}[2/4] 拉取最新代码...${RST}"
+  local _pulled=0
   if [ -d "$APP_DIR/.git" ]; then
-    (cd "$APP_DIR" && git pull --ff-only 2>&1) || { warn "git pull 失败，使用当前代码继续..."; }
-    info "代码已更新"
+    # 优先用 fetch + reset(兼容浅克隆,比 pull --ff-only 更健壮)
+    if (cd "$APP_DIR" && git fetch --depth 1 origin main 2>/dev/null && git reset --hard origin/main 2>/dev/null); then
+      info "代码已更新"
+      _pulled=1
+    fi
+    # 直连失败,尝试镜像
+    if [ "$_pulled" -eq 0 ]; then
+      if (cd "$APP_DIR" && git remote set-url origin "https://ghfast.top/$REPO_URL" 2>/dev/null && git fetch --depth 1 origin main 2>/dev/null && git reset --hard origin/main 2>/dev/null); then
+        info "通过镜像更新代码"
+        (cd "$APP_DIR" && git remote set-url origin "$REPO_URL" 2>/dev/null)
+        _pulled=1
+      fi
+    fi
+    if [ "$_pulled" -eq 0 ]; then
+      warn "git fetch 失败，跳过代码更新（继续使用当前代码）"
+    fi
   else
     warn "非 Git 仓库，跳过代码拉取（使用当前代码）"
   fi
