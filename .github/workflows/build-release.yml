@@ -1,0 +1,85 @@
+# ─────────────────────────────────────────────
+# 十夜卡密 · GitHub Actions 自动构建
+# push 到 main 自动: 构建前端 → 打包 tar.gz → 发布 Release
+# ─────────────────────────────────────────────
+name: build-release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # 支持手动触发
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # 安装依赖
+      - name: Install dependencies
+        run: |
+          cd server && npm install --no-fund --no-audit && cd ..
+          cd web    && npm install --no-fund --no-audit && cd ..
+
+      # 构建前端（产物输出到 server/public）
+      - name: Build frontend
+        run: npm run build
+
+      # 打包构建包（排除 node_modules 与数据库）
+      - name: Package build
+        run: |
+          TAG="${{ github.run_number }}"
+          ARCHIVE="KMGLXT-v0.${TAG}.tar.gz"
+          echo "ARCHIVE=${ARCHIVE}" >> "$GITHUB_ENV"
+
+          tar -czf "${ARCHIVE}" \
+            --exclude='server/node_modules' \
+            --exclude='web/node_modules' \
+            --exclude='server/data' \
+            --exclude='web/dist' \
+            --exclude='.git' \
+            --exclude='.claude' \
+            --exclude='方案.md' \
+            --exclude='规划书.md' \
+            server/ web/ deploy/ docs/ package.json README.md .gitignore
+
+          echo "--- 包内容 ---"
+          tar -tzf "${ARCHIVE}" | head -30
+          echo "--- 总文件数 ---"
+          tar -tzf "${ARCHIVE}" | wc -l
+          echo "--- 包大小 ---"
+          du -h "${ARCHIVE}"
+
+      # 发布 Release（含构建包资产）
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v0.${{ github.run_number }}"
+          name: "构建包 #${{ github.run_number }}"
+          body: |
+            🔄 **自动构建产物**
+
+            - 包含前端构建好的静态文件（`server/public/`）
+            - 部署脚本（`deploy/build.sh`、`deploy/km.sh`）
+            - 对接文档（`docs/对接文档.md`、SDK 示例）
+            - **不包含**数据库数据（`server/data`）与依赖（`node_modules`）
+
+            **服务器部署步骤：**
+            ```bash
+            # 下载解压到 /opt/kmglxt
+            wget <下载地址>
+            tar -xzf KMGLXT-v*.tar.gz -C /opt/kmglxt
+            cd /opt/kmglxt && bash deploy/build.sh
+            systemctl restart kmglxt
+            ```
+          files: ${{ env.ARCHIVE }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
