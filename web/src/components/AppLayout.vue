@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   ElButton, ElDialog, ElDropdown, ElDropdownItem, ElDropdownMenu,
@@ -14,7 +14,7 @@ import 'element-plus/es/components/message/style/css'
 import 'element-plus/es/components/tabs/style/css'
 import { useAuth } from '@/stores/auth'
 import { useSite } from '@/stores/site'
-import { post } from '@/lib/request'
+import { get, post } from '@/lib/request'
 import IconFrame from './IconFrame.vue'
 
 const auth = useAuth()
@@ -28,8 +28,25 @@ const navs = [
   { path: '/card-types', label: '套餐', icon: 'tag' },
   { path: '/projects', label: '项目', icon: 'globe' },
   { path: '/logs', label: '日志', icon: 'logs' },
+  { path: '/deployment', label: '部署更新', icon: 'server' },
   { path: '/settings', label: '系统设置', icon: 'settings' },
 ]
+
+const updateAvailable = ref(false)
+let updateTimer = null
+async function checkUpdate() {
+  try {
+    const status = await get('/api/admin/update/status')
+    updateAvailable.value = Boolean(status?.updateAvailable)
+  } catch {
+    /* 更新检查不阻塞后台使用 */
+  }
+}
+onMounted(() => {
+  checkUpdate()
+  updateTimer = setInterval(checkUpdate, 15 * 60 * 1000)
+})
+onBeforeUnmount(() => clearInterval(updateTimer))
 
 /* 账号安全(改用户名 / 改密码) */
 const showAccount = ref(false)
@@ -122,6 +139,7 @@ async function saveAccount() {
         >
           <IconFrame :name="n.icon" :size="18" />
           <span class="nav-label">{{ n.label }}</span>
+          <span v-if="n.path === '/deployment' && updateAvailable" class="update-dot">新</span>
         </router-link>
       </nav>
 
@@ -289,6 +307,17 @@ async function saveAccount() {
 .nav-item.active .icon-frame {
   filter: drop-shadow(0 2px 6px rgba(255, 255, 255, 0.55));
 }
+.update-dot {
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: 999px;
+  color: #fff;
+  background: linear-gradient(135deg, #fb7185, #ef4444);
+  box-shadow: 0 3px 10px rgba(239, 68, 68, 0.28);
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.6;
+}
 
 .sidebar-foot {
   padding-top: 12px;
@@ -368,6 +397,7 @@ async function saveAccount() {
   }
   .brand-text,
   .nav-label,
+  .update-dot,
   .user-meta {
     display: none;
   }

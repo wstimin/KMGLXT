@@ -1,0 +1,12 @@
+services:
+  kmglxt:
+    image: ghcr.io/wstimin/kmglxt:latest
+    container_name: kmglxt
+    restart: unless-stopped
+    ports:
+      - "${KM_PORT:-1111}:1111"
+    environment:
+      TRUST_PROXY: "${TRUST_PROXY:-0}"
+      DEPLOY_MODE: "docker"
+    volumes:
+      - ./data:/data

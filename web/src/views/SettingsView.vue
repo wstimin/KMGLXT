@@ -169,7 +169,7 @@ async function onRestoreFile(file) {
         <div class="info-rows">
           <div class="info-row hover-strip">
             <span class="info-label"><IconFrame name="star" :size="15" /> 版本</span>
-            <span class="info-value">v1.0</span>
+            <span class="info-value">{{ site.version || 'v1.0.1' }} · GitHub Release 自动检查</span>
           </div>
           <div class="info-row hover-strip">
             <span class="info-label"><IconFrame name="cards" :size="15" /> 存储</span>

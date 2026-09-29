@@ -104,7 +104,7 @@ async function onLogin() {
             登 录
           </el-button>
         </el-form>
-        <p class="login-tip">默认账号 <b>admin</b> · 首次登录后请在侧栏「账号安全」修改</p>
+        <p class="login-tip">使用安装时创建的管理员账号登录</p>
       </div>
 
       <!-- 特性亮点 -->
@@ -118,7 +118,7 @@ async function onLogin() {
         </div>
       </div>
 
-      <footer class="login-footer rise d3">© 2026 十夜网络 · 卡密管理系统 v1.0</footer>
+      <footer class="login-footer rise d3">© 2026 十夜网络 · 卡密管理系统 {{ site.version || 'v1.0.1' }}</footer>
     </div>
   </div>
 </template>

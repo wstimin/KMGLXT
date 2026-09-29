@@ -1,6 +1,6 @@
 {
   "name": "shiyeka",
-  "version": "0.1.0",
+  "version": "1.0.1",
   "private": true,
   "description": "十夜卡密 - 综合性卡密管理系统(全局统一卡池 / 一卡通用 / 多项目接管)",
   "scripts": {

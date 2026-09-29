@@ -6,6 +6,7 @@ export const useSite = defineStore('site', {
   state: () => ({
     name: '',
     announcement: '',
+    version: '',
     loaded: false,
   }),
   actions: {
@@ -15,6 +16,7 @@ export const useSite = defineStore('site', {
         const data = await get('/api/site')
         this.name = data?.name || ''
         this.announcement = data?.announcement || ''
+        this.version = data?.version || ''
       } catch {
         /* 失败时维持空值,显示层用「十夜卡密」兜底 */
       }

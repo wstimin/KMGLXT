@@ -1,0 +1,11 @@
+.git
+.github
+.claude
+node_modules
+web/node_modules
+server/node_modules
+server/data
+server/public
+*.log
+方案.md
+规划书.md

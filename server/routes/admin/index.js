@@ -14,5 +14,6 @@ router.use('/projects', require('./projects'));
 router.use('/audit', require('./audit'));
 router.use('/logs', require('./logs'));
 router.use('/backup', require('./backup'));
+router.use('/update', require('./update'));
 
 module.exports = router;

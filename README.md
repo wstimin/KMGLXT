@@ -1,5 +1,7 @@
 # 十夜卡密 · 综合性卡密管理系统
 
+当前正式版本：`v1.0.1`。`main` 分支从该版本起按提交自动递增补丁版本号。
+
 > 全局统一卡池 · 一卡通用 · 单次核销 · 多项目接管
 > 系统(`KMGLXT`)只负责**卡密存储与管理 + 对外验卡 API**,不做商城/支付——卡在外部平台售卖
 
@@ -56,6 +58,16 @@ km uninstall            # 彻底卸载(删除全部数据)
 | systemd | `kmglxt.service`,开机自启、崩溃自动拉起 |
 | 防火墙 | 自动放行 1111 / 80 / 443 |
 | 域名(可选) | 添加域名 → Nginx 反代 → 自动申请 Let's Encrypt 证书 |
+
+## 宝塔 / 1Panel / Docker
+
+这些方式与 `deploy/km.sh` 一键安装相互独立，由面板或容器负责进程、域名和 HTTPS。宝塔与 1Panel 使用 Release 中的 `KMGLXT-v*-panel.tar.gz` 专用包，上传解压、创建 Node 项目并绑定域名后，首次访问会自动进入网页安装向导，不需要在终端初始化数据库或创建管理员：
+
+- 宝塔：[deploy/panel/宝塔.md](deploy/panel/宝塔.md)
+- 1Panel：[deploy/panel/1Panel.md](deploy/panel/1Panel.md)
+- Docker：[deploy/docker/README.md](deploy/docker/README.md)
+
+在安装向导中填写站点名称、超级管理员账号和密码即可进入后台。登录后可在“部署更新”页面查看可视化安装步骤。系统每 15 分钟检查一次最新 GitHub Release；发现可安装版本时侧栏显示“新”，超级管理员可在页面中备份并更新。Docker 环境会提供可复制的一键更新命令。
 
 ## 快速开始(开发机)
 

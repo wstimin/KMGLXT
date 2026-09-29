@@ -2,11 +2,10 @@
 
 const express = require('express');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
 
 const router = express.Router();
 const { getDb } = require('../../db');
-const { getSecret } = require('../../lib/secret');
+const { issueAdminCookie } = require('../../lib/session');
 const { now } = require('../../lib/time');
 const { logOper } = require('../../lib/audit');
 const config = require('../../config');
@@ -14,22 +13,6 @@ const { authAdmin } = require('../../middleware/auth.admin');
 const { asyncWrap } = require('../../middleware/error');
 
 const ok = (res, data) => res.json({ code: 0, message: 'ok', data });
-
-function issueCookie(res, admin) {
-  const token = jwt.sign(
-    { id: admin.id, username: admin.username, role: admin.role },
-    getSecret(),
-    { expiresIn: config.jwt.expiresIn }
-  );
-  const secured = !!res.req.secure || res.req.headers['x-forwarded-proto'] === 'https';
-  res.cookie('syk_token', token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: secured,
-    maxAge: 7 * 24 * 3600 * 1000,
-    path: '/',
-  });
-}
 
 router.post('/login', asyncWrap(async (req, res) => {
   const { username, password } = req.body || {};
@@ -72,7 +55,7 @@ router.post('/login', asyncWrap(async (req, res) => {
   db.prepare('UPDATE admins SET login_fail_count = 0, lock_until = 0, last_login_at = ?, last_login_ip = ?, updated_at = ? WHERE id = ?')
     .run(t, clientIp, t, admin.id);
   logOper(db, { id: admin.id, username: admin.username, _ip: clientIp }, 'auth:login', '账号', '登录成功');
-  issueCookie(res, admin);
+  issueAdminCookie(req, res, admin);
   return ok(res, { admin: { id: admin.id, username: admin.username, role: admin.role } });
 }));
 
@@ -122,7 +105,7 @@ router.post('/change-username', authAdmin, asyncWrap(async (req, res) => {
   db.prepare('UPDATE admins SET username = ?, updated_at = ? WHERE id = ?').run(name, now(), admin.id);
   logOper(db, { id: admin.id, username: admin.username, _ip: req.ip }, 'auth:change_username', '账号', `修改用户名为「${name}」`);
   const updated = { id: admin.id, username: name, role: admin.role };
-  issueCookie(res, updated);
+  issueAdminCookie(req, res, updated);
   return ok(res, { admin: updated });
 }));
 
@@ -150,7 +133,7 @@ router.post('/change-username', authAdmin, asyncWrap(async (req, res) => {
   db.prepare('UPDATE admins SET username = ?, updated_at = ? WHERE id = ?').run(name, now(), admin.id);
   logOper(db, { id: admin.id, username: admin.username, _ip: req.ip }, 'auth:change_username', '账号', `修改用户名为 ${name}`);
   const updated = { id: admin.id, username: name, role: admin.role };
-  issueCookie(res, updated);
+  issueAdminCookie(req, res, updated);
   return ok(res, { admin: updated });
 }));
 

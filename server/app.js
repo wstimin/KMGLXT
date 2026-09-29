@@ -8,7 +8,9 @@ const cookieParser = require('cookie-parser');
 
 const config = require('./config');
 const { getDb } = require('./db');
+const { readLocalVersion } = require('./lib/release');
 const adminApi = require('./routes/admin');
+const installApi = require('./routes/install');
 const openApi = require('./routes/open');
 const { errorHandler } = require('./middleware/error');
 
@@ -46,12 +48,19 @@ app.get('/api/site', (req, res) => {
   return res.json({
     code: 0,
     message: 'ok',
-    data: { name: settings.site_name || '', announcement: settings.announcement || '' },
+    data: {
+      name: settings.site_name || '',
+      announcement: settings.announcement || '',
+      version: readLocalVersion(path.join(__dirname, '..')),
+    },
   });
 });
 
-// 管理端 API
+// 首次安装向导 API（仅数据库中没有管理员时允许完成安装）
 getDb();
+app.use('/api/install', installApi);
+
+// 管理端 API
 app.use('/api/admin', adminApi);
 
 // 对外验卡 API
