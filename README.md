@@ -107,7 +107,8 @@ npm start
 | 查看日志 | `journalctl -u kmglxt -f` |
 | 一键更新(检查版本→下载 Release→备份→重启) | `km update` |
 | 远端重新拉码构建(不自动重启) | `bash /opt/kmglxt/deploy/build.sh` |
-| 手动备份数据库 | 后台「系统设置 → 数据与备份」或 `node server/scripts/db-backup.js <路径>.db` |
+| 完整备份/迁移 | 后台「系统设置 → 完整备份与迁移」下载 `.kmbackup`，新服务器上传即可恢复全部数据与系统密钥 |
+| 手动数据库快照 | `node server/scripts/db-backup.js <路径>.db` |
 | 修改账号密码 | `km auth` 或后台侧边栏 |
 
 ## 当前进度

@@ -20,4 +20,8 @@ function getSecret() {
   return cached;
 }
 
-module.exports = { getSecret };
+function resetSecret() {
+  cached = null;
+}
+
+module.exports = { getSecret, resetSecret };

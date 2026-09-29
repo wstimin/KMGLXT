@@ -70,8 +70,9 @@ async function onBackup() {
   backupLoading.value = true
   try {
     const r = await post('/api/admin/backup/create', {})
-    ElMessage.success(`备份完成:${r.name}`)
-    loadBackups()
+    await downloadUrl(`/api/admin/backup/download?name=${encodeURIComponent(r.name)}`, r.name)
+    ElMessage.success('完整备份已创建并开始下载')
+    await loadBackups()
   } catch (e) {
     ElMessage.error(e.message)
   } finally {
@@ -88,8 +89,8 @@ function onDownload(row) {
 async function onRestoreFile(file) {
   try {
     await ElMessageBox.confirm(
-      '恢复将用上传的备份【整体替换】当前数据库,当前数据会丢失。请确认已再次备份。',
-      '危险操作确认',
+      '恢复会整体替换当前数据。完整迁移包还会恢复管理员账号和系统密钥，完成后需使用备份中的账号重新登录。',
+      '恢复完整备份',
       { type: 'warning', confirmButtonText: '确认恢复', cancelButtonText: '取消' }
     )
   } catch {
@@ -100,8 +101,13 @@ async function onRestoreFile(file) {
     const fd = new FormData()
     fd.append('file', file.raw)
     const r = await upload('/api/admin/backup/restore', fd)
-    ElMessage.success('数据库已恢复,当前已生效')
-    loadBackups()
+    ElMessage.success(r.portable ? '完整数据已恢复，即将返回登录页' : '数据库已恢复，当前已生效')
+    if (r.requiresLogin) {
+      await auth.logout()
+      setTimeout(() => { window.location.href = '/login' }, 900)
+    } else {
+      loadBackups()
+    }
   } catch (e) {
     ElMessage.error(e.message)
   } finally {
@@ -121,7 +127,7 @@ async function onRestoreFile(file) {
           <span class="set-title">站点信息</span>
           <span class="set-sub">显示在登录页与仪表盘</span>
         </div>
-        <el-form label-width="86px">
+        <el-form class="site-form" label-position="top">
           <el-form-item label="站点名称">
             <el-input v-model="form.site_name" maxlength="30" show-word-limit placeholder="例如:十夜卡密" />
           </el-form-item>
@@ -185,21 +191,29 @@ async function onRestoreFile(file) {
       <!-- 数据与备份 -->
       <div class="glass set-card backup-card">
         <div class="set-head">
-          <span class="set-title">数据与备份</span>
-          <span class="set-sub">SQLite 热备份(不锁库)</span>
+          <span class="set-title">完整备份与迁移</span>
+          <span class="set-sub">下载后可在新服务器恢复</span>
+        </div>
+        <div class="migration-note">
+          <span class="migration-icon"><IconFrame name="shield" :size="19" /></span>
+          <div>
+            <b>一份文件，完整迁移</b>
+            <p>包含管理员、站点设置、项目、套餐、卡密、日志及系统密钥。新服务器安装后上传即可恢复。</p>
+          </div>
         </div>
         <div class="backup-actions">
-          <el-button class="glow-btn" :loading="backupLoading" @click="onBackup">
-            <IconFrame name="download" :size="14" /> 立即备份
+          <el-button v-if="auth.isSuper" class="glow-btn" :loading="backupLoading" @click="onBackup">
+            <IconFrame name="download" :size="14" /> 创建并下载完整备份
           </el-button>
           <el-upload
             v-if="auth.isSuper"
+            :auto-upload="false"
             :show-file-list="false"
-            :before-upload="onRestoreFile"
-            accept=".db"
+            :on-change="onRestoreFile"
+            accept=".kmbackup,.db"
           >
             <el-button class="glow-ghost" :loading="restoring">
-              <IconFrame name="upload" :size="14" /> 恢复备份(超管)
+              <IconFrame name="upload" :size="14" /> 上传并恢复
             </el-button>
           </el-upload>
         </div>
@@ -207,14 +221,19 @@ async function onRestoreFile(file) {
         <div v-if="backups.length" class="backup-list">
           <div v-for="b in backups" :key="b.name" class="backup-row hover-strip">
             <IconFrame name="doc" :size="14" />
-            <span class="backup-name mono">{{ b.name }}</span>
-            <span class="backup-meta">{{ fmtNum(b.size) }} B · {{ fmtTime(b.created_at) }}</span>
-            <el-button size="small" text @click="onDownload(b)">
+            <div class="backup-main">
+              <span class="backup-name mono" :title="b.name">{{ b.name }}</span>
+              <span class="backup-detail">
+                <span class="backup-kind">{{ b.kind === 'portable' ? '完整迁移包' : '数据库快照' }}</span>
+                <span class="backup-meta">{{ fmtNum(b.size) }} B · {{ fmtTime(b.created_at) }}</span>
+              </span>
+            </div>
+            <el-button v-if="auth.isSuper" size="small" text @click="onDownload(b)">
               <IconFrame name="download" :size="13" /> 下载
             </el-button>
           </div>
         </div>
-        <p v-else class="backup-empty">还没有备份 —— 建议每日备份一次,部署后可用 cron 自动执行。</p>
+        <p v-else class="backup-empty">还没有备份。建议创建后下载到本地或云盘妥善保存。</p>
       </div>
     </div>
   </div>
@@ -262,6 +281,16 @@ async function onRestoreFile(file) {
   font-size: 12px;
   color: var(--ink-3);
 }
+:deep(.site-form .el-form-item) { margin-bottom: 18px; }
+:deep(.site-form .el-form-item__label) {
+  height: auto;
+  margin-bottom: 8px;
+  padding: 0;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
+}
 
 .info-rows {
   display: flex;
@@ -300,6 +329,29 @@ async function onRestoreFile(file) {
   align-items: center;
   margin-bottom: 14px;
 }
+.migration-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 15px;
+  margin-bottom: 15px;
+  border: 1px solid rgba(79,124,255,.1);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(34,211,238,.08), rgba(139,92,246,.08));
+}
+.migration-icon {
+  display: grid;
+  flex: none;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 12px;
+  color: var(--brand-blue);
+  background: rgba(255,255,255,.72);
+  box-shadow: 0 5px 14px rgba(79,124,255,.12);
+}
+.migration-note b { color: var(--ink-1); font-size: 13.5px; }
+.migration-note p { margin: 3px 0 0; color: var(--ink-2); font-size: 11.5px; line-height: 1.65; }
 .backup-list {
   display: flex;
   flex-direction: column;
@@ -308,20 +360,35 @@ async function onRestoreFile(file) {
   overflow: auto;
 }
 .backup-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 9px 12px;
   border-radius: 10px;
 }
 .backup-name {
-  flex: 1;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 12.5px;
   color: var(--ink-1);
 }
+.backup-main { min-width: 0; }
+.backup-detail { display: flex; align-items: center; gap: 7px; margin-top: 3px; }
 .backup-meta {
   font-size: 11.5px;
   color: var(--ink-3);
+}
+.backup-kind {
+  flex: none;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: var(--brand-blue);
+  background: rgba(79,124,255,.09);
+  font-size: 10px;
+  font-weight: 700;
 }
 .backup-empty {
   margin: 6px 0 0;
@@ -331,5 +398,13 @@ async function onRestoreFile(file) {
   font-size: 12.5px;
   border: 1px dashed rgba(79, 124, 255, 0.2);
   border-radius: 12px;
+}
+@media (max-width: 620px) {
+  .set-card { padding: 20px 18px; }
+  .set-head { align-items: flex-start; flex-direction: column; gap: 4px; }
+  .backup-actions { align-items: stretch; flex-direction: column; }
+  .backup-actions .el-button, .backup-actions :deep(.el-upload) { width: 100%; }
+  .backup-row { align-items: flex-start; }
+  .backup-detail { align-items: flex-start; flex-direction: column; gap: 4px; }
 }
 </style>
