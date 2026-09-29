@@ -21,6 +21,7 @@ const router = express.Router();
 const appRoot = path.join(__dirname, '../../..');
 const updaterScript = path.join(appRoot, 'deploy', 'panel-update.sh');
 const stateFile = path.join(config.dataDir, 'update-status.json');
+const routeLoadedAt = Date.now();
 const ok = (res, data) => res.json({ code: 0, message: 'ok', data });
 
 function readState() {
@@ -28,6 +29,29 @@ function readState() {
     const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
     if (state.status === 'running' && Date.now() - Number(state.updatedAt || 0) > 30 * 60 * 1000) {
       return { ...state, status: 'failed', phase: 'stale', message: '上次更新未正常结束，请查看 update.log' };
+    }
+    // 更新器会在终止旧进程前写入 restarting。只有新进程加载本路由后，
+    // 才将匹配当前版本的状态收尾，避免旧进程在真正重启前提前显示完成。
+    if (
+      state.status === 'success'
+      && state.phase === 'restarting'
+      && Number(state.updatedAt || 0) <= routeLoadedAt
+      && readLocalVersion(appRoot) === state.version
+    ) {
+      const completed = {
+        ...state,
+        status: 'success',
+        phase: 'complete',
+        message: `更新完成，当前版本 ${state.version}`,
+        completedAt: Date.now(),
+      };
+      writeState(completed);
+      return completed;
+    }
+    // 成功信息只保留十分钟，之后恢复普通的版本状态说明。
+    if (state.status === 'success' && state.phase === 'complete'
+      && Date.now() - Number(state.updatedAt || 0) > 10 * 60 * 1000) {
+      return { status: 'idle', phase: 'idle', message: '' };
     }
     return state;
   } catch {
