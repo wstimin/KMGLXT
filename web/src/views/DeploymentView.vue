@@ -110,7 +110,8 @@ function schedulePoll(delay = 1800) {
 async function loadStatus(force = false, polling = false) {
   if (force) refreshing.value = true
   try {
-    status.value = await get(`/api/admin/update/status${force ? '?refresh=1' : ''}`)
+    const query = force ? `?refresh=1&_=${Date.now()}` : ''
+    status.value = await get(`/api/admin/update/status${query}`)
     const nextState = status.value?.state?.status
     updating.value = nextState === 'running'
     if (nextState === 'running') {
@@ -164,7 +165,7 @@ async function copyText(text, message = '已复制') {
   }
 }
 
-onMounted(() => loadStatus())
+onMounted(() => loadStatus(true))
 onBeforeUnmount(() => clearTimeout(pollTimer))
 </script>
 
@@ -184,8 +185,9 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
       <div class="update-copy">
         <span class="eyebrow">SYSTEM RELEASE</span>
         <h3 v-if="loading">正在读取版本信息…</h3>
+        <h3 v-else-if="status?.checkError">暂时无法确认最新版本</h3>
         <h3 v-else-if="status?.updateAvailable">发现新版本 {{ latestLabel }}</h3>
-        <h3 v-else>{{ status?.checkError ? '暂时无法检查更新' : '当前已是最新版本' }}</h3>
+        <h3 v-else>当前已是最新版本</h3>
         <p v-if="state.status === 'running'" class="progress-line">
           <span class="spinner" /> {{ state.message }}
         </p>
@@ -201,7 +203,7 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
         </div>
         <span class="flow-arrow">→</span>
         <div class="version-box latest">
-          <span>最新版本</span>
+          <span>{{ status?.latest?.stale ? '缓存版本' : '最新版本' }}</span>
           <strong>{{ latestLabel }}</strong>
         </div>
       </div>

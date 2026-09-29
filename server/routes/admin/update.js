@@ -97,6 +97,7 @@ async function buildStatus(force = false) {
   let checkError = '';
   try {
     latest = await fetchLatestRelease(force);
+    if (latest?.stale) checkError = latest.checkError || '最新版本检查失败，当前显示缓存结果';
   } catch (error) {
     checkError = error.message || '无法连接 GitHub';
   }
@@ -118,6 +119,7 @@ async function buildStatus(force = false) {
 }
 
 router.get('/status', authAdmin, asyncWrap(async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
   return ok(res, await buildStatus(req.query.refresh === '1'));
 }));
 

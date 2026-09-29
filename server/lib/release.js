@@ -5,7 +5,8 @@ const path = require('path');
 
 const REPO = 'wstimin/KMGLXT';
 const RELEASE_API = `https://api.github.com/repos/${REPO}/releases/latest`;
-const CACHE_TTL = 5 * 60 * 1000;
+const RELEASE_PAGE = `https://github.com/${REPO}/releases/latest`;
+const CACHE_TTL = 60 * 1000;
 
 let cache = { data: null, expiresAt: 0 };
 
@@ -37,40 +38,102 @@ function isNewerVersion(latest, current) {
   return false;
 }
 
+async function fetchReleaseApi(force = false) {
+  const suffix = force ? `?refresh=${Date.now()}` : '';
+  const response = await fetch(`${RELEASE_API}${suffix}`, {
+    cache: 'no-store',
+    headers: {
+      Accept: 'application/vnd.github+json',
+      'Cache-Control': 'no-cache',
+      Pragma: 'no-cache',
+      'User-Agent': 'KMGLXT-update-checker',
+      'X-GitHub-Api-Version': '2022-11-28',
+    },
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!response.ok) throw new Error(`GitHub API ${response.status}`);
+  const json = await response.json();
+  const tag = normalizeTag(json.tag_name);
+  if (!tag) throw new Error('GitHub Release 版本号无效');
+
+  const archive = Array.isArray(json.assets)
+    ? json.assets.find((item) => item.name === `KMGLXT-${tag}.tar.gz`)
+    : null;
+  return {
+    tag,
+    name: json.name || tag,
+    url: json.html_url || `https://github.com/${REPO}/releases/tag/${tag}`,
+    assetUrl: archive?.browser_download_url || '',
+    publishedAt: json.published_at || '',
+    stale: false,
+  };
+}
+
+async function fetchReleasePage() {
+  const response = await fetch(`${RELEASE_PAGE}?refresh=${Date.now()}`, {
+    cache: 'no-store',
+    headers: {
+      'Cache-Control': 'no-cache',
+      Pragma: 'no-cache',
+      'User-Agent': 'KMGLXT-update-checker',
+    },
+    redirect: 'follow',
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!response.ok) throw new Error(`GitHub Release 页面 ${response.status}`);
+  const match = /\/releases\/tag\/([^/?#]+)/.exec(response.url);
+  const tag = normalizeTag(match ? decodeURIComponent(match[1]) : '');
+  if (!tag) throw new Error('GitHub Release 页面未返回版本号');
+  return {
+    tag,
+    name: tag,
+    url: `https://github.com/${REPO}/releases/tag/${tag}`,
+    assetUrl: `https://github.com/${REPO}/releases/download/${tag}/KMGLXT-${tag}.tar.gz`,
+    publishedAt: '',
+    stale: false,
+  };
+}
+
+async function settle(promise) {
+  try {
+    return { status: 'fulfilled', value: await promise };
+  } catch (reason) {
+    return { status: 'rejected', reason };
+  }
+}
+
 async function fetchLatestRelease(force = false) {
   if (!force && cache.data && cache.expiresAt > Date.now()) return cache.data;
 
-  try {
-    const response = await fetch(RELEASE_API, {
-      headers: {
-        Accept: 'application/vnd.github+json',
-        'User-Agent': 'KMGLXT-update-checker',
-        'X-GitHub-Api-Version': '2022-11-28',
-      },
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!response.ok) throw new Error(`GitHub API ${response.status}`);
-    const json = await response.json();
-    const tag = normalizeTag(json.tag_name);
-    if (!tag) throw new Error('GitHub Release 版本号无效');
+  const attempts = [await settle(fetchReleaseApi(force))];
+  if (attempts[0].status === 'rejected') {
+    attempts.push(await settle(fetchReleasePage()));
+  }
 
-    const archive = Array.isArray(json.assets)
-      ? json.assets.find((item) => item.name === `KMGLXT-${tag}.tar.gz`)
-      : null;
-    const data = {
-      tag,
-      name: json.name || tag,
-      url: json.html_url || `https://github.com/${REPO}/releases/tag/${tag}`,
-      assetUrl: archive?.browser_download_url || '',
-      publishedAt: json.published_at || '',
-      stale: false,
-    };
+  const available = attempts
+    .filter((result) => result.status === 'fulfilled')
+    .map((result) => result.value);
+  if (available.length) {
+    const data = available.reduce((latest, item) => (
+      isNewerVersion(item.tag, latest.tag) ? item : latest
+    ));
     cache = { data, expiresAt: Date.now() + CACHE_TTL };
     return data;
-  } catch (error) {
-    if (cache.data) return { ...cache.data, stale: true };
-    throw error;
   }
+
+  const reason = attempts
+    .filter((result) => result.status === 'rejected')
+    .map((result) => result.reason?.message)
+    .filter(Boolean)
+    .join('；') || '无法连接 GitHub';
+  if (cache.data) {
+    return {
+      ...cache.data,
+      stale: true,
+      checkError: `GitHub 暂时不可用，显示的是缓存版本：${reason}`,
+    };
+  }
+  throw new Error(reason);
 }
 
 function readLocalVersion(appRoot) {
