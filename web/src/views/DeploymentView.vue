@@ -1,9 +1,9 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { ElButton, ElMessage, ElMessageBox } from 'element-plus'
+import { ElButton, ElDialog, ElMessage } from 'element-plus'
 import 'element-plus/es/components/button/style/css'
+import 'element-plus/es/components/dialog/style/css'
 import 'element-plus/es/components/message/style/css'
-import 'element-plus/es/components/message-box/style/css'
 import IconFrame from '@/components/IconFrame.vue'
 import { get, post } from '@/lib/request'
 import { useAuth } from '@/stores/auth'
@@ -14,6 +14,7 @@ const loading = ref(true)
 const refreshing = ref(false)
 const updating = ref(false)
 const updateRequested = ref(false)
+const showUpdateConfirm = ref(false)
 const activeGuide = ref('baota')
 let pollTimer = null
 let reloadScheduled = false
@@ -131,21 +132,17 @@ async function loadStatus(force = false, polling = false) {
   }
 }
 
-async function startUpdate() {
+async function requestUpdate() {
   if (!auth.isSuper) return ElMessage.warning('只有超级管理员可以执行更新')
   if (status.value?.mode === 'docker') {
     await copyText(status.value.dockerCommand, 'Docker 更新命令已复制')
     return
   }
-  try {
-    await ElMessageBox.confirm(
-      `将从 ${currentLabel.value} 更新到 ${latestLabel.value}。系统会先自动备份数据库，更新期间可能短暂断开连接。`,
-      '安装新版本',
-      { type: 'warning', confirmButtonText: '备份并更新', cancelButtonText: '取消' }
-    )
-  } catch {
-    return
-  }
+  showUpdateConfirm.value = true
+}
+
+async function confirmUpdate() {
+  showUpdateConfirm.value = false
   updating.value = true
   updateRequested.value = true
   try {
@@ -216,13 +213,57 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
           class="glow-btn update-button"
           :loading="isBusy"
           :disabled="status?.mode !== 'docker' && !status?.canUpdate"
-          @click="startUpdate"
+          @click="requestUpdate"
         >
           {{ status?.mode === 'docker' ? '复制更新命令' : '立即更新' }}
         </el-button>
         <a v-if="status?.latest?.url" class="release-link" :href="status.latest.url" target="_blank" rel="noreferrer">查看 Release ↗</a>
       </div>
     </section>
+
+    <el-dialog
+      v-model="showUpdateConfirm"
+      class="release-dialog"
+      width="460px"
+      align-center
+      append-to-body
+      :show-close="false"
+      :close-on-click-modal="false"
+    >
+      <div class="release-dialog-body">
+        <span class="dialog-orb" aria-hidden="true" />
+        <div class="release-icon"><IconFrame name="refresh" :size="25" /></div>
+        <span class="eyebrow">VERSION UPDATE</span>
+        <h3>准备安装新版本</h3>
+        <p class="release-description">系统会自动备份数据库并安装构建包，过程中服务可能短暂断开。</p>
+
+        <div class="dialog-version-flow" aria-label="版本更新">
+          <div>
+            <span>当前版本</span>
+            <strong>{{ currentLabel }}</strong>
+          </div>
+          <span class="dialog-arrow">→</span>
+          <div class="target-version">
+            <span>目标版本</span>
+            <strong>{{ latestLabel }}</strong>
+          </div>
+        </div>
+
+        <div class="safety-note">
+          <span class="safety-icon"><IconFrame name="shield" :size="17" /></span>
+          <div>
+            <b>业务数据会被保留</b>
+            <span>更新前自动备份数据库、账号、密钥和卡密数据</span>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <div class="release-dialog-actions">
+          <el-button class="dialog-cancel" @click="showUpdateConfirm = false">暂不更新</el-button>
+          <el-button class="glow-btn dialog-confirm" @click="confirmUpdate">备份并更新</el-button>
+        </div>
+      </template>
+    </el-dialog>
 
     <section class="guide-shell glass">
       <div class="guide-head">
@@ -299,6 +340,42 @@ onBeforeUnmount(() => clearTimeout(pollTimer))
 .mode-pill { padding: 4px 9px; border-radius: 999px; color: #0369a1; background: rgba(56,189,248,.12); font-size: 11px; font-weight: 700; }
 .release-link { color: var(--brand-blue); font-size: 11.5px; text-decoration: none; }
 .update-button { min-width: 112px; }
+
+/* 版本确认弹窗：延续后台的蓝紫玻璃主题 */
+:global(.release-dialog.el-dialog) {
+  max-width: calc(100vw - 28px);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.92);
+  border-radius: 24px;
+  background: rgba(247,250,255,.94);
+  box-shadow: 0 24px 70px rgba(49,65,126,.28), 0 0 0 1px rgba(79,124,255,.08);
+  backdrop-filter: blur(24px) saturate(150%);
+}
+:global(.release-dialog .el-dialog__header) { display: none; }
+:global(.release-dialog .el-dialog__body) { padding: 0; }
+:global(.release-dialog .el-dialog__footer) { padding: 0 26px 24px; }
+.release-dialog-body { position: relative; padding: 28px 28px 20px; overflow: hidden; text-align: center; }
+.dialog-orb { position: absolute; width: 210px; height: 210px; top: -142px; right: -80px; border-radius: 50%; background: linear-gradient(135deg, rgba(34,211,238,.26), rgba(139,92,246,.26)); filter: blur(18px); pointer-events: none; }
+.release-icon { position: relative; display: grid; width: 58px; height: 58px; margin: 0 auto 14px; place-items: center; border: 1px solid rgba(255,255,255,.95); border-radius: 18px; color: #fff; background: var(--grad-main); box-shadow: 0 10px 26px rgba(79,124,255,.32); }
+.release-dialog-body h3 { margin: 5px 0 6px; color: var(--ink-1); font-size: 21px; }
+.release-description { max-width: 350px; margin: 0 auto; color: var(--ink-2); font-size: 12.5px; line-height: 1.65; }
+.dialog-version-flow { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 13px; margin: 22px 0 14px; }
+.dialog-version-flow > div { padding: 13px 14px; border: 1px solid rgba(79,124,255,.11); border-radius: 14px; background: rgba(255,255,255,.7); text-align: left; }
+.dialog-version-flow span { display: block; margin-bottom: 3px; color: var(--ink-3); font-size: 10.5px; }
+.dialog-version-flow strong { color: var(--ink-1); font-size: 18px; }
+.dialog-version-flow .target-version { border-color: rgba(139,92,246,.2); background: linear-gradient(135deg, rgba(79,124,255,.08), rgba(139,92,246,.1)); }
+.dialog-version-flow .target-version strong { color: var(--brand-violet); }
+.dialog-arrow { margin: 0 !important; color: var(--brand-blue) !important; font-size: 19px !important; }
+.safety-note { display: flex; align-items: center; gap: 11px; padding: 12px 14px; border-radius: 14px; color: #0f766e; background: rgba(16,185,129,.09); text-align: left; }
+.safety-icon { display: grid; flex: none; width: 34px; height: 34px; place-items: center; border-radius: 11px; background: rgba(255,255,255,.72); }
+.safety-note div { display: flex; flex-direction: column; gap: 2px; }
+.safety-note b { font-size: 12.5px; }
+.safety-note div span { color: #4b8078; font-size: 11px; }
+.release-dialog-actions { display: grid; grid-template-columns: 1fr 1.35fr; gap: 10px; }
+.release-dialog-actions .el-button { width: 100%; height: 42px; margin: 0; border-radius: 12px; }
+.dialog-cancel { color: var(--ink-2); border-color: rgba(79,124,255,.13); background: rgba(255,255,255,.7); }
+.dialog-confirm:active { transform: scale(.98); }
 
 .guide-shell { padding: 26px; }
 .guide-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 24px; }
