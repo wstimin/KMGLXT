@@ -11,6 +11,7 @@ const { getDb } = require('./db');
 const { readLocalVersion } = require('./lib/release');
 const adminApi = require('./routes/admin');
 const installApi = require('./routes/install');
+const bootstrapApi = require('./routes/bootstrap');
 const openApi = require('./routes/open');
 const { errorHandler } = require('./middleware/error');
 
@@ -58,6 +59,7 @@ app.get('/api/site', (req, res) => {
 
 // 首次安装向导 API（仅数据库中没有管理员时允许完成安装）
 getDb();
+app.use('/api/bootstrap', bootstrapApi);
 app.use('/api/install', installApi);
 
 // 管理端 API

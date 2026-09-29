@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { useAuth } from '@/stores/auth'
 import { useSite } from '@/stores/site'
 import { useInstall } from '@/stores/install'
+import { get } from '@/lib/request'
 
 const routes = [
   {
@@ -77,10 +78,24 @@ router.beforeEach(async (to) => {
   const site = useSite()
   const install = useInstall()
 
-  try {
-    await install.fetchStatus()
-  } catch {
-    // 保留目标页面，由页面本身显示后续网络错误。
+  if (install.installed === null || !site.loaded || !auth.loaded) {
+    try {
+      const data = await get('/api/bootstrap', { redirectOnUnauthorized: false })
+      install.installed = Boolean(data.installed)
+      install.defaultSiteName = data.defaultSiteName || '十夜卡密'
+      site.name = data.site?.name || ''
+      site.announcement = data.site?.announcement || ''
+      site.version = data.site?.version || ''
+      site.loaded = true
+      auth.admin = data.admin || null
+      auth.loaded = true
+    } catch {
+      // 兼容更新过程中的短暂连接失败，旧接口并行兜底。
+      const tasks = [install.fetchStatus()]
+      if (!site.loaded) tasks.push(site.fetchSite())
+      if (!auth.loaded && !to.meta.public) tasks.push(auth.fetchMe())
+      await Promise.allSettled(tasks)
+    }
   }
 
   if (install.installed === false && to.path !== '/install') {
@@ -89,14 +104,6 @@ router.beforeEach(async (to) => {
   if (install.installed === true && to.path === '/install') {
     return { path: auth.isLoggedIn ? '/dashboard' : '/login' }
   }
-  const startupTasks = []
-
-  if (!site.loaded) startupTasks.push(site.fetchSite())
-  if (!auth.loaded && !to.meta.public) {
-    startupTasks.push(auth.fetchMe())
-  }
-  if (startupTasks.length) await Promise.allSettled(startupTasks)
-
   if (!auth.isLoggedIn && !to.meta.public) {
     return { path: '/login' }
   }

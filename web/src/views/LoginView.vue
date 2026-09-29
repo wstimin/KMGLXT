@@ -366,11 +366,11 @@ async function onLogin() {
 
 /* ══ 入场动画 ══ */
 .rise {
-  animation: riseIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: riseIn 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
-.d1 { animation-delay: 0.12s; }
-.d2 { animation-delay: 0.24s; }
-.d3 { animation-delay: 0.34s; }
+.d1 { animation-delay: 0.05s; }
+.d2 { animation-delay: 0.1s; }
+.d3 { animation-delay: 0.15s; }
 
 /* Element 输入框:玻璃化 */
 .prefix-ic {
@@ -429,5 +429,8 @@ async function onLogin() {
   .feature-cell { padding: 9px 10px; }
   .f-text span { display: none; }
   .feature-row { grid-template-columns: repeat(3, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .halo, .chip, .logo-ring::before, .brand-logo, .login-btn::after, .rise { animation: none; }
 }
 </style>
