@@ -1,6 +1,19 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  ElButton, ElDialog, ElForm, ElFormItem, ElInput, ElInputNumber, ElMessage,
+  ElMessageBox, ElSwitch, ElTable, ElTableColumn, ElTooltip,
+} from 'element-plus'
+import 'element-plus/es/components/button/style/css'
+import 'element-plus/es/components/dialog/style/css'
+import 'element-plus/es/components/form/style/css'
+import 'element-plus/es/components/input/style/css'
+import 'element-plus/es/components/input-number/style/css'
+import 'element-plus/es/components/message/style/css'
+import 'element-plus/es/components/message-box/style/css'
+import 'element-plus/es/components/switch/style/css'
+import 'element-plus/es/components/table/style/css'
+import 'element-plus/es/components/tooltip/style/css'
 import IconFrame from '@/components/IconFrame.vue'
 import PageOverview from '@/components/PageOverview.vue'
 import { get, post, put, del } from '@/lib/request'

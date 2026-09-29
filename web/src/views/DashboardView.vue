@@ -1,5 +1,9 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { ElProgress, ElRadioButton, ElRadioGroup } from 'element-plus'
+import 'element-plus/es/components/progress/style/css'
+import 'element-plus/es/components/radio-button/style/css'
+import 'element-plus/es/components/radio-group/style/css'
 import IconFrame from '@/components/IconFrame.vue'
 import HeroStat from '@/components/HeroStat.vue'
 import TrendChart from '@/components/TrendChart.vue'

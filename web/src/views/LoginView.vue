@@ -1,7 +1,11 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElButton, ElForm, ElFormItem, ElInput, ElMessage } from 'element-plus'
+import 'element-plus/es/components/button/style/css'
+import 'element-plus/es/components/form/style/css'
+import 'element-plus/es/components/input/style/css'
+import 'element-plus/es/components/message/style/css'
 import { useAuth } from '@/stores/auth'
 import { useSite } from '@/stores/site'
 import IconFrame from '@/components/IconFrame.vue'

@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 const express = require('express');
 const cookieParser = require('cookie-parser');
 
@@ -62,8 +63,45 @@ app.use('/api', (req, res) => res.status(404).json({ code: 404, message: '接口
 // 前端静态站(web 构建产物)
 const indexFile = path.join(config.webDist, 'index.html');
 if (fs.existsSync(indexFile)) {
-  app.use(express.static(config.webDist));
-  app.get(/^(?!\/api).*/, (req, res) => res.sendFile(indexFile));
+  // 对带内容哈希的静态资源启用 Brotli / gzip；无需额外运行时依赖。
+  app.get('/assets/:file', (req, res, next) => {
+    const fileName = req.params.file;
+    if (fileName !== path.basename(fileName) || !/\.(?:css|js|json|svg)$/.test(fileName)) return next();
+
+    const accepted = req.headers['accept-encoding'] || '';
+    const useBrotli = /\bbr\b/.test(accepted);
+    const useGzip = !useBrotli && /\bgzip\b/.test(accepted);
+    if (!useBrotli && !useGzip) return next();
+
+    const assetPath = path.join(config.webDist, 'assets', fileName);
+    fs.stat(assetPath, (err, stat) => {
+      if (err || !stat.isFile()) return next();
+
+      res.type(path.extname(fileName));
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      res.setHeader('Content-Encoding', useBrotli ? 'br' : 'gzip');
+      res.setHeader('Vary', 'Accept-Encoding');
+      const compressor = useBrotli
+        ? zlib.createBrotliCompress({ params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 5 } })
+        : zlib.createGzip({ level: 6 });
+      fs.createReadStream(assetPath).pipe(compressor).pipe(res);
+    });
+  });
+
+  app.use(express.static(config.webDist, {
+    setHeaders: (res, filePath) => {
+      const relativePath = path.relative(config.webDist, filePath);
+      if (relativePath.startsWith(`assets${path.sep}`)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      } else if (path.basename(filePath) === 'index.html') {
+        res.setHeader('Cache-Control', 'no-cache');
+      }
+    },
+  }));
+  app.get(/^(?!\/api).*/, (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile(indexFile);
+  });
 } else {
   console.warn('[warn] 未找到前端构建产物(server/public),预计运行: npm run build');
 }

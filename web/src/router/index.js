@@ -61,14 +61,14 @@ const router = createRouter({
 
 router.beforeEach(async (to) => {
   const auth = useAuth()
+  const site = useSite()
+  const startupTasks = []
 
+  if (!site.loaded) startupTasks.push(site.fetchSite())
   if (!auth.loaded && !to.meta.public) {
-    try {
-      await auth.fetchMe()
-    } catch {
-      /* 401 已由 request.js 处理 */
-    }
+    startupTasks.push(auth.fetchMe())
   }
+  if (startupTasks.length) await Promise.allSettled(startupTasks)
 
   if (!auth.isLoggedIn && !to.meta.public) {
     return { path: '/login' }
@@ -78,8 +78,6 @@ router.beforeEach(async (to) => {
   }
 
   // 站点名称(浏览器标签页标题):登录页与后台共用
-  const site = useSite()
-  if (!site.loaded) await site.fetchSite()
   document.title = (to.meta?.title ? `${to.meta.title} · ` : '') + (site.name || '十夜卡密')
   return true
 })

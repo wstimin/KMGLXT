@@ -1,6 +1,16 @@
 <script setup>
 import { ref, reactive, onMounted, watch } from 'vue'
-import { ElMessage } from 'element-plus'
+import {
+  ElButton, ElInput, ElMessage, ElOption, ElPagination, ElSelect,
+  ElTabPane, ElTable, ElTableColumn, ElTabs,
+} from 'element-plus'
+import 'element-plus/es/components/button/style/css'
+import 'element-plus/es/components/input/style/css'
+import 'element-plus/es/components/message/style/css'
+import 'element-plus/es/components/pagination/style/css'
+import 'element-plus/es/components/select/style/css'
+import 'element-plus/es/components/table/style/css'
+import 'element-plus/es/components/tabs/style/css'
 import IconFrame from '@/components/IconFrame.vue'
 import PageOverview from '@/components/PageOverview.vue'
 import { get } from '@/lib/request'

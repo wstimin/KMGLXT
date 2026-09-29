@@ -1,19 +1,23 @@
 <script setup>
+import { ElConfigProvider } from 'element-plus'
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
 </script>
 
 <template>
-  <div class="app-root">
-    <div class="glow-field" aria-hidden="true">
-      <span class="blob blob-cyan" />
-      <span class="blob blob-violet" />
-      <span class="blob blob-pink" />
+  <el-config-provider :locale="zhCn">
+    <div class="app-root">
+      <div class="glow-field" aria-hidden="true">
+        <span class="blob blob-cyan" />
+        <span class="blob blob-violet" />
+        <span class="blob blob-pink" />
+      </div>
+      <router-view v-slot="{ Component }">
+        <transition name="page" mode="out-in">
+          <component :is="Component" />
+        </transition>
+      </router-view>
     </div>
-    <router-view v-slot="{ Component }">
-      <transition name="page" mode="out-in">
-        <component :is="Component" />
-      </transition>
-    </router-view>
-  </div>
+  </el-config-provider>
 </template>
 
 <style>

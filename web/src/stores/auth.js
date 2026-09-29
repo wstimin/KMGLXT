@@ -12,7 +12,8 @@ export const useAuth = defineStore('auth', {
   },
   actions: {
     async fetchMe() {
-      const data = await get('/api/admin/auth/me')
+      // 由路由守卫决定是否跳转，避免未登录首访时发生一次整页刷新。
+      const data = await get('/api/admin/auth/me', { redirectOnUnauthorized: false })
       this.admin = data.admin
       this.loaded = true
       return this.admin

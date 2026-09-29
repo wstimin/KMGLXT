@@ -1,6 +1,14 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  ElButton, ElForm, ElFormItem, ElInput, ElMessage, ElMessageBox, ElUpload,
+} from 'element-plus'
+import 'element-plus/es/components/button/style/css'
+import 'element-plus/es/components/form/style/css'
+import 'element-plus/es/components/input/style/css'
+import 'element-plus/es/components/message/style/css'
+import 'element-plus/es/components/message-box/style/css'
+import 'element-plus/es/components/upload/style/css'
 import IconFrame from '@/components/IconFrame.vue'
 import { get, put, post, upload, downloadUrl } from '@/lib/request'
 import { useAuth } from '@/stores/auth'

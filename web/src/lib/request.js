@@ -5,7 +5,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request(path, { method = 'GET', body } = {}) {
+async function request(path, { method = 'GET', body, redirectOnUnauthorized = true } = {}) {
   const opts = { method, credentials: 'same-origin', headers: {} }
   if (body !== undefined) {
     opts.headers['Content-Type'] = 'application/json'
@@ -27,7 +27,7 @@ async function request(path, { method = 'GET', body } = {}) {
   }
 
   // 会话失效:整体跳登录页(登录接口自身的 401 除外)
-  if (res.status === 401 && !location.pathname.startsWith('/login')) {
+  if (res.status === 401 && redirectOnUnauthorized && !location.pathname.startsWith('/login')) {
     window.location.href = '/login'
     throw new ApiError(401, json?.message || '登录已失效')
   }
@@ -38,8 +38,8 @@ async function request(path, { method = 'GET', body } = {}) {
   return json ? json.data : null
 }
 
-export function get(path) {
-  return request(path)
+export function get(path, options) {
+  return request(path, options)
 }
 export function post(path, body) {
   return request(path, { method: 'POST', body })
