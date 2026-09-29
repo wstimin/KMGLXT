@@ -15,6 +15,7 @@ import 'element-plus/es/components/tabs/style/css'
 import { useAuth } from '@/stores/auth'
 import { useSite } from '@/stores/site'
 import { get, post } from '@/lib/request'
+import { prefetchAdminViews } from '@/lib/routePrefetch'
 import IconFrame from './IconFrame.vue'
 
 const auth = useAuth()
@@ -45,6 +46,7 @@ async function checkUpdate() {
 onMounted(() => {
   checkUpdate()
   updateTimer = setInterval(checkUpdate, 15 * 60 * 1000)
+  prefetchAdminViews()
 })
 onBeforeUnmount(() => clearInterval(updateTimer))
 
@@ -169,9 +171,11 @@ async function saveAccount() {
     </aside>
 
     <main class="content">
-      <router-view v-slot="{ Component }">
-        <transition name="page" mode="out-in">
-          <component :is="Component" />
+      <router-view v-slot="{ Component, route }">
+        <transition name="content-page" mode="out-in">
+          <keep-alive :max="7">
+            <component :is="Component" :key="route.name" />
+          </keep-alive>
         </transition>
       </router-view>
     </main>
@@ -377,6 +381,27 @@ async function saveAccount() {
   min-width: 0;
   margin-left: 264px;
   padding: 28px 36px 60px;
+}
+
+.content-page-enter-active {
+  transition: opacity 0.14s ease-out, transform 0.14s ease-out;
+}
+.content-page-leave-active {
+  transition: opacity 0.08s ease-in;
+}
+.content-page-enter-from {
+  opacity: 0;
+  transform: translateY(4px);
+}
+.content-page-leave-to {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .content-page-enter-active,
+  .content-page-leave-active {
+    transition: none;
+  }
 }
 
 .dd-item {
