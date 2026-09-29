@@ -181,20 +181,55 @@ async function saveAccount() {
     </main>
 
     <!-- 账号安全 -->
-    <el-dialog v-model="showAccount" title="账号安全" width="480px" align-center>
-      <el-tabs v-model="acctTab">
+    <el-dialog
+      v-model="showAccount"
+      class="account-dialog"
+      width="520px"
+      align-center
+      :show-close="false"
+      :close-on-click-modal="!saving"
+      :close-on-press-escape="!saving"
+    >
+      <div class="account-dialog-body">
+        <header class="account-dialog-head">
+          <span class="account-dialog-icon"><IconFrame name="shield" :size="27" /></span>
+          <div>
+            <span class="account-eyebrow">ACCOUNT SECURITY</span>
+            <h3>账号安全</h3>
+            <p>验证当前密码后修改登录凭据</p>
+          </div>
+          <button
+            class="account-close"
+            type="button"
+            aria-label="关闭账号安全弹窗"
+            :disabled="saving"
+            @click="showAccount = false"
+          >×</button>
+        </header>
+
+        <div class="account-current">
+          <span class="account-avatar"><IconFrame name="user" :size="18" /></span>
+          <span>
+            <small>当前账号</small>
+            <b>{{ auth.admin?.username }}</b>
+          </span>
+          <em>{{ auth.isSuper ? '超级管理员' : '管理员' }}</em>
+        </div>
+
+        <el-tabs v-model="acctTab" class="account-tabs" stretch>
         <el-tab-pane label="修改用户名" name="username">
-          <el-form label-width="88px" @submit.prevent>
+          <el-form label-position="top" @submit.prevent>
             <el-form-item label="新的用户名">
-              <el-input v-model="acct.newUsername" maxlength="32" placeholder="2-32 位:字母 / 数字 / 下划线 / 中文" />
+              <el-input v-model="acct.newUsername" maxlength="32" placeholder="2-32 位，支持字母、数字、下划线和中文" />
             </el-form-item>
             <el-form-item label="当前密码">
               <el-input v-model="acct.password" type="password" show-password placeholder="输入当前密码确认身份" />
             </el-form-item>
           </el-form>
+          <p class="account-security-note"><IconFrame name="shield" :size="14" /> 修改后请使用新用户名登录</p>
         </el-tab-pane>
         <el-tab-pane label="修改密码" name="password">
-          <el-form label-width="88px" @submit.prevent>
+          <el-form label-position="top" @submit.prevent>
             <el-form-item label="原密码">
               <el-input v-model="pwd.oldPassword" type="password" show-password placeholder="请输入原密码" />
             </el-form-item>
@@ -205,13 +240,17 @@ async function saveAccount() {
               <el-input v-model="pwd.confirm" type="password" show-password placeholder="再次输入新密码" />
             </el-form-item>
           </el-form>
+          <p class="account-security-note"><IconFrame name="lock" :size="14" /> 密码至少 6 位，修改后下次登录生效</p>
         </el-tab-pane>
-      </el-tabs>
+        </el-tabs>
+      </div>
       <template #footer>
-        <el-button @click="showAccount = false">取消</el-button>
-        <el-button class="glow-btn" :loading="saving" @click="saveAccount">
-          {{ acctTab === 'username' ? '确认修改用户名' : '确认修改密码' }}
-        </el-button>
+        <div class="account-dialog-actions">
+          <el-button class="account-cancel" :disabled="saving" @click="showAccount = false">取消</el-button>
+          <el-button class="glow-btn account-confirm" :loading="saving" @click="saveAccount">
+            {{ acctTab === 'username' ? '确认修改用户名' : '确认修改密码' }}
+          </el-button>
+        </div>
       </template>
     </el-dialog>
   </div>
@@ -458,9 +497,94 @@ async function saveAccount() {
   color: var(--brand-blue);
   background: rgba(79, 124, 255, 0.08);
 }
-/* 账号安全弹窗:输入框玻璃化 */
-.account-tabs .el-tabs__nav-wrap::after {
-  height: 1px;
-  background: rgba(79, 124, 255, 0.15);
+/* 账号安全弹窗 */
+.account-dialog.el-dialog {
+  max-width: calc(100vw - 28px);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(139, 92, 246, 0.17), transparent 38%),
+    radial-gradient(circle at 0% 0%, rgba(34, 211, 238, 0.14), transparent 40%),
+    rgba(248, 250, 255, 0.97);
+  box-shadow: 0 26px 80px rgba(52, 72, 145, 0.26);
+}
+.account-dialog .el-dialog__header { display: none; }
+.account-dialog .el-dialog__body { padding: 0; }
+.account-dialog .el-dialog__footer { padding: 0 28px 26px; }
+.account-dialog-body { padding: 28px 28px 18px; }
+.account-dialog-head { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; }
+.account-dialog-icon {
+  display: grid;
+  width: 56px;
+  height: 56px;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,.9);
+  border-radius: 18px;
+  background: var(--grad-main);
+  box-shadow: 0 10px 24px rgba(79,124,255,.3);
+}
+.account-dialog-head h3 { margin: 2px 0 3px; color: var(--ink-1); font-size: 21px; line-height: 1.2; }
+.account-dialog-head p { margin: 0; color: var(--ink-2); font-size: 12.5px; }
+.account-eyebrow { color: var(--brand-blue); font-size: 9.5px; font-weight: 800; letter-spacing: .15em; }
+.account-close {
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(79,124,255,.12);
+  border-radius: 11px;
+  color: var(--ink-3);
+  background: rgba(255,255,255,.62);
+  cursor: pointer;
+  font: 300 23px/1 sans-serif;
+  transition: color .16s ease, background .16s ease, transform .16s ease;
+}
+.account-close:hover { color: var(--brand-violet); background: #fff; transform: rotate(3deg); }
+.account-close:disabled { cursor: not-allowed; opacity: .55; }
+.account-current {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 22px 0 18px;
+  padding: 11px 13px;
+  border: 1px solid rgba(79,124,255,.1);
+  border-radius: 14px;
+  background: rgba(255,255,255,.58);
+}
+.account-avatar { display: grid; width: 34px; height: 34px; flex: none; place-items: center; border-radius: 11px; background: rgba(79,124,255,.1); }
+.account-current > span:nth-child(2) { display: flex; min-width: 0; flex: 1; flex-direction: column; }
+.account-current small { color: var(--ink-3); font-size: 10px; }
+.account-current b { overflow: hidden; color: var(--ink-1); font-size: 13.5px; text-overflow: ellipsis; white-space: nowrap; }
+.account-current em { padding: 3px 9px; border-radius: 999px; color: var(--brand-violet); background: rgba(139,92,246,.09); font-size: 10.5px; font-style: normal; font-weight: 700; }
+.account-tabs .el-tabs__header { margin-bottom: 19px; }
+.account-tabs .el-tabs__nav-wrap { padding: 4px; border-radius: 13px; background: rgba(79,124,255,.065); }
+.account-tabs .el-tabs__nav-wrap::after { display: none; }
+.account-tabs .el-tabs__active-bar { display: none; }
+.account-tabs .el-tabs__nav { width: 100%; }
+.account-tabs .el-tabs__item {
+  height: 36px;
+  flex: 1;
+  border-radius: 10px;
+  color: var(--ink-2);
+  font-size: 13px;
+  transition: color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+.account-tabs .el-tabs__item.is-active { color: var(--brand-blue); background: rgba(255,255,255,.9); box-shadow: 0 5px 14px rgba(79,124,255,.12); }
+.account-tabs .el-form-item { margin-bottom: 17px; }
+.account-tabs .el-form-item__label { height: auto; margin-bottom: 6px; color: var(--ink-1); font-size: 12.5px; font-weight: 650; line-height: 1.4; }
+.account-tabs .el-input__wrapper { min-height: 42px; border-radius: 12px; background: rgba(255,255,255,.78); box-shadow: 0 0 0 1px rgba(79,124,255,.11) inset; }
+.account-tabs .el-input__wrapper.is-focus { box-shadow: 0 0 0 1px var(--brand-blue) inset, 0 0 0 4px rgba(79,124,255,.08); }
+.account-security-note { display: flex; align-items: center; gap: 6px; margin: 1px 0 0; color: var(--ink-3); font-size: 11.5px; }
+.account-dialog-actions { display: grid; grid-template-columns: 1fr 1.45fr; gap: 10px; }
+.account-dialog-actions .el-button { width: 100%; height: 42px; margin: 0; border-radius: 12px; }
+.account-cancel { border-color: rgba(79,124,255,.13); color: var(--ink-2); background: rgba(255,255,255,.7); }
+
+@media (max-width: 560px) {
+  .account-dialog-body { padding: 22px 20px 16px; }
+  .account-dialog .el-dialog__footer { padding: 0 20px 22px; }
+  .account-dialog-icon { width: 48px; height: 48px; border-radius: 15px; }
+  .account-dialog-head { gap: 11px; }
+  .account-dialog-head h3 { font-size: 19px; }
+  .account-current { margin-top: 18px; }
+  .account-dialog-actions { grid-template-columns: 1fr; }
 }
 </style>
