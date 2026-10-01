@@ -138,3 +138,192 @@
 .hover-strip:hover {
   background: rgba(255, 255, 255, 0.5);
 }
+
+/* ── 全局弹窗主题 ──
+   Dialog/MessageBox 会 teleport 到 body，必须在全局样式中统一处理。 */
+body .el-overlay {
+  background-color: var(--overlay-bg);
+  backdrop-filter: blur(7px) saturate(115%);
+  -webkit-backdrop-filter: blur(7px) saturate(115%);
+}
+
+body .el-dialog,
+body .el-message-box {
+  --el-bg-color: var(--dialog-bg);
+  --el-bg-color-overlay: var(--dialog-bg);
+  --el-fill-color-blank: var(--control-bg);
+  --el-fill-color-light: var(--surface-muted);
+  --el-border-color: var(--control-border);
+  --el-border-color-light: var(--dialog-divider);
+  --el-text-color-primary: var(--ink-1);
+  --el-text-color-regular: var(--ink-2);
+  --el-text-color-secondary: var(--ink-3);
+  max-width: calc(100vw - 28px);
+  overflow: hidden;
+  border: 1px solid var(--dialog-border);
+  border-radius: 22px;
+  color: var(--ink-1);
+  background: var(--dialog-bg-art);
+  box-shadow: var(--dialog-shadow);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+}
+
+body .el-dialog {
+  padding: 0;
+}
+
+body .el-dialog__header,
+body .el-message-box__header {
+  margin: 0;
+  padding: 22px 24px 15px;
+  border-bottom: 1px solid var(--dialog-divider);
+}
+
+body .el-dialog__title,
+body .el-message-box__title {
+  color: var(--ink-1);
+  font-size: 17px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+}
+
+body .el-dialog__headerbtn,
+body .el-message-box__headerbtn {
+  top: 14px;
+  right: 16px;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, transform 120ms cubic-bezier(.23, 1, .32, 1);
+}
+
+body .el-dialog__headerbtn:hover,
+body .el-message-box__headerbtn:hover {
+  border-color: var(--control-border);
+  color: var(--brand-violet);
+  background: var(--control-bg-hover);
+}
+
+body .el-dialog__headerbtn:active,
+body .el-message-box__headerbtn:active {
+  transform: scale(.96);
+}
+
+body .el-dialog__close,
+body .el-message-box__close {
+  color: currentColor;
+}
+
+body .el-dialog__body {
+  padding: 22px 24px;
+  color: var(--ink-2);
+}
+
+body .el-dialog__footer {
+  padding: 0 24px 22px;
+}
+
+body .el-dialog__footer .el-button,
+body .el-message-box__btns .el-button {
+  min-width: 88px;
+  height: 40px;
+  margin-left: 9px;
+  border-color: var(--control-border);
+  border-radius: 11px;
+  color: var(--ink-2);
+  background: var(--control-bg);
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 120ms cubic-bezier(.23, 1, .32, 1);
+}
+
+body .el-dialog__footer .el-button:hover,
+body .el-message-box__btns .el-button:hover {
+  color: var(--brand-blue);
+  background: var(--control-bg-hover);
+}
+
+body .el-dialog__footer .el-button:active,
+body .el-message-box__btns .el-button:active {
+  transform: scale(.97);
+}
+
+body .el-dialog__footer .el-button--primary,
+body .el-message-box__btns .el-button--primary {
+  border-color: transparent;
+  color: #fff;
+  background: var(--grad-main);
+  box-shadow: 0 6px 18px rgba(79, 124, 255, 0.28);
+}
+
+body .el-dialog__footer .el-button--primary:hover,
+body .el-message-box__btns .el-button--primary:hover {
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(139, 92, 246, 0.36);
+}
+
+body .el-dialog .el-form-item__label {
+  color: var(--ink-2);
+  font-weight: 650;
+}
+
+body .el-dialog .el-input__wrapper,
+body .el-dialog .el-textarea__inner,
+body .el-dialog .el-select__wrapper,
+body .el-dialog .el-input-number {
+  border-radius: 11px;
+  color: var(--ink-1);
+  background: var(--control-bg);
+  box-shadow: 0 0 0 1px var(--control-border) inset;
+}
+
+body .el-dialog .el-input__wrapper.is-focus,
+body .el-dialog .el-textarea__inner:focus,
+body .el-dialog .el-select__wrapper.is-focused {
+  box-shadow: 0 0 0 1px var(--brand-blue) inset, 0 0 0 4px rgba(79, 124, 255, 0.08);
+}
+
+body .el-message-box {
+  padding: 0;
+}
+
+body .el-message-box__content {
+  padding: 22px 24px 18px;
+  color: var(--ink-2);
+}
+
+body .el-message-box__message {
+  line-height: 1.7;
+}
+
+body .el-message-box__btns {
+  padding: 0 24px 22px;
+}
+
+@media (max-width: 560px) {
+  body .el-dialog__header,
+  body .el-message-box__header {
+    padding: 19px 20px 14px;
+  }
+
+  body .el-dialog__body,
+  body .el-message-box__content {
+    padding: 19px 20px;
+  }
+
+  body .el-dialog__footer,
+  body .el-message-box__btns {
+    padding: 0 20px 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body .el-dialog__headerbtn,
+  body .el-message-box__headerbtn,
+  body .el-dialog__footer .el-button,
+  body .el-message-box__btns .el-button {
+    transition: none;
+  }
+}

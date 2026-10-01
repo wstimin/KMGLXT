@@ -501,13 +501,10 @@ async function saveAccount() {
 .account-dialog.el-dialog {
   max-width: calc(100vw - 28px);
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--dialog-border);
   border-radius: 24px;
-  background:
-    radial-gradient(circle at 100% 0%, rgba(139, 92, 246, 0.17), transparent 38%),
-    radial-gradient(circle at 0% 0%, rgba(34, 211, 238, 0.14), transparent 40%),
-    rgba(248, 250, 255, 0.97);
-  box-shadow: 0 26px 80px rgba(52, 72, 145, 0.26);
+  background: var(--dialog-bg-art);
+  box-shadow: var(--dialog-shadow);
 }
 .account-dialog .el-dialog__header { display: none; }
 .account-dialog .el-dialog__body { padding: 0; }
@@ -530,15 +527,15 @@ async function saveAccount() {
 .account-close {
   width: 34px;
   height: 34px;
-  border: 1px solid rgba(79,124,255,.12);
+  border: 1px solid var(--control-border);
   border-radius: 11px;
   color: var(--ink-3);
-  background: rgba(255,255,255,.62);
+  background: var(--control-bg);
   cursor: pointer;
   font: 300 23px/1 sans-serif;
   transition: color .16s ease, background .16s ease, transform .16s ease;
 }
-.account-close:hover { color: var(--brand-violet); background: #fff; transform: rotate(3deg); }
+.account-close:hover { color: var(--brand-violet); background: var(--control-bg-hover); transform: rotate(3deg); }
 .account-close:disabled { cursor: not-allowed; opacity: .55; }
 .account-current {
   display: flex;
@@ -546,9 +543,9 @@ async function saveAccount() {
   gap: 10px;
   margin: 22px 0 18px;
   padding: 11px 13px;
-  border: 1px solid rgba(79,124,255,.1);
+  border: 1px solid var(--dialog-divider);
   border-radius: 14px;
-  background: rgba(255,255,255,.58);
+  background: var(--control-bg);
 }
 .account-avatar { display: grid; width: 34px; height: 34px; flex: none; place-items: center; border-radius: 11px; background: rgba(79,124,255,.1); }
 .account-current > span:nth-child(2) { display: flex; min-width: 0; flex: 1; flex-direction: column; }
@@ -556,7 +553,7 @@ async function saveAccount() {
 .account-current b { overflow: hidden; color: var(--ink-1); font-size: 13.5px; text-overflow: ellipsis; white-space: nowrap; }
 .account-current em { padding: 3px 9px; border-radius: 999px; color: var(--brand-violet); background: rgba(139,92,246,.09); font-size: 10.5px; font-style: normal; font-weight: 700; }
 .account-tabs .el-tabs__header { margin-bottom: 19px; }
-.account-tabs .el-tabs__nav-wrap { padding: 4px; border-radius: 13px; background: rgba(79,124,255,.065); }
+.account-tabs .el-tabs__nav-wrap { padding: 4px; border-radius: 13px; background: var(--surface-muted); }
 .account-tabs .el-tabs__nav-wrap::after { display: none; }
 .account-tabs .el-tabs__active-bar { display: none; }
 .account-tabs .el-tabs__nav { width: 100%; }
@@ -568,15 +565,15 @@ async function saveAccount() {
   font-size: 13px;
   transition: color .18s ease, background .18s ease, box-shadow .18s ease;
 }
-.account-tabs .el-tabs__item.is-active { color: var(--brand-blue); background: rgba(255,255,255,.9); box-shadow: 0 5px 14px rgba(79,124,255,.12); }
+.account-tabs .el-tabs__item.is-active { color: var(--brand-blue); background: var(--control-bg-hover); box-shadow: 0 5px 14px rgba(79,124,255,.12); }
 .account-tabs .el-form-item { margin-bottom: 17px; }
 .account-tabs .el-form-item__label { height: auto; margin-bottom: 6px; color: var(--ink-1); font-size: 12.5px; font-weight: 650; line-height: 1.4; }
-.account-tabs .el-input__wrapper { min-height: 42px; border-radius: 12px; background: rgba(255,255,255,.78); box-shadow: 0 0 0 1px rgba(79,124,255,.11) inset; }
+.account-tabs .el-input__wrapper { min-height: 42px; border-radius: 12px; background: var(--control-bg); box-shadow: 0 0 0 1px var(--control-border) inset; }
 .account-tabs .el-input__wrapper.is-focus { box-shadow: 0 0 0 1px var(--brand-blue) inset, 0 0 0 4px rgba(79,124,255,.08); }
 .account-security-note { display: flex; align-items: center; gap: 6px; margin: 1px 0 0; color: var(--ink-3); font-size: 11.5px; }
 .account-dialog-actions { display: grid; grid-template-columns: 1fr 1.45fr; gap: 10px; }
 .account-dialog-actions .el-button { width: 100%; height: 42px; margin: 0; border-radius: 12px; }
-.account-cancel { border-color: rgba(79,124,255,.13); color: var(--ink-2); background: rgba(255,255,255,.7); }
+.account-cancel { border-color: var(--control-border); color: var(--ink-2); background: var(--control-bg); }
 
 @media (max-width: 560px) {
   .account-dialog-body { padding: 22px 20px 16px; }
