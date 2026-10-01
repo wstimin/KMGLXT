@@ -1134,12 +1134,28 @@ EOF
 }
 
 case "${1:-}" in
-  ''|menu)
+  '')
     if [ -t 0 ]; then
       menu
+    elif [ -r /dev/tty ]; then
+      # 宝塔、1Panel 等面板可能通过非 TTY 的 stdin 启动脚本，
+      # 但当前会话仍然有可用的控制终端。接管它以恢复交互菜单。
+      exec </dev/tty
+      menu
     else
-      # 非交互环境(如 piped)直接显示信息
+      # 真正的非交互环境(如 piped/cron)直接显示信息，避免阻塞。
       cmd_info
+    fi
+    ;;
+  menu)
+    if [ -t 0 ]; then
+      menu
+    elif [ -r /dev/tty ]; then
+      exec </dev/tty
+      menu
+    else
+      err "当前没有可用的交互终端，无法打开菜单。请在 SSH/面板终端中执行：km menu"
+      exit 1
     fi
     ;;
   install)  cmd_install ;;
